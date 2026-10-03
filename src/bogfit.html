@@ -331,19 +331,18 @@ function chart(points, opt){
   (opt.lines||[]).filter(v=>v>=y0&&v<=y1).forEach(v=>{ s+=`<line x1="${L}" x2="${W-R}" y1="${Y(v)}" y2="${Y(v)}" stroke="var(--zone)" stroke-width="1.2" stroke-dasharray="3 2"/><text x="${L-5}" y="${Y(v)+3}" text-anchor="end" style="fill:var(--zone);font-weight:600">${v}</text>`; });
   // date lines: at most ~4, spaced to suit the time span (months, quarters, half-years or years)
   const spanM = (x1-x0)/(30.44*864e5);
-  const stepM = [1,2,3,6,12,24,36].find(k=>spanM/k<=4) || 60;
+  const stepM = [1,2,3,6,12,24,36].find(k=>spanM/k<=3) || 60;
   const d=new Date(x0); d.setDate(1); d.setHours(12,0,0,0);
   if(stepM>=12){ d.setMonth(0); d.setFullYear(d.getFullYear()+1); } else { d.setMonth(Math.floor(d.getMonth()/stepM)*stepM + stepM); }
   const multiYear = new Date(x0).getFullYear()!==new Date(x1).getFullYear();
   while(d.getTime()<=x1){
     const x=X(d.getTime()), lab = stepM>=12 ? String(d.getFullYear()) : d.toLocaleDateString('en-AU', multiYear&&d.getMonth()===0 ? {month:'short', year:'2-digit'} : {month:'short'});
-    if(x>L+12 && x<W-R-12) s+=`<line x1="${x}" x2="${x}" y1="${T}" y2="${H-B}" stroke="var(--line)" stroke-width=".6"/><text x="${x}" y="${H-6}" text-anchor="middle">${lab}</text>`;
+    if(x>L+14 && x<W-R-14) s+=`<text x="${x}" y="${H-6}" text-anchor="middle">${lab}</text>`;
     d.setMonth(d.getMonth()+stepM);
   }
   const pts = points.map(p=>[X(t(p)),Y(p.v)]);
   s+=`<polyline fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round" points="${pts.map(p=>p.map(r1).join(',')).join(' ')}"/>`;
-  const dots = pts.length<=30;
-  pts.forEach((p,i)=>{ const last=i===pts.length-1; if(!dots && !last) return; s+=`<circle cx="${r1(p[0])}" cy="${r1(p[1])}" r="${last?4.5:3}" fill="${last?'var(--accent)':'var(--surface)'}" stroke="var(--accent)" stroke-width="1.8"/>`; });
+  pts.forEach((p,i)=>{ const last=i===pts.length-1; if(!last) return; s+=`<circle cx="${r1(p[0])}" cy="${r1(p[1])}" r="${last?4.5:3}" fill="${last?'var(--accent)':'var(--surface)'}" stroke="var(--accent)" stroke-width="1.8"/>`; });
   return s+'</svg>';
 }
 
