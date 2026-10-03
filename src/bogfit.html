@@ -198,6 +198,9 @@ label.go{display:block;font-size:22px}
 .htile b small{font-family:var(--f-body);font-size:13px;font-weight:500;color:var(--muted);margin-left:3px}
 .htile .hs{font-size:12.5px;color:var(--muted)}
 .down{color:var(--accent);font-weight:600}
+.lockhero{align-items:center;text-align:center;padding-block:36px 28px}
+.lockhero .logo{width:76px;height:76px}
+.lockhero h1{font-size:24px;letter-spacing:.18em;opacity:.5;margin:4px 0 0}
 </style>
 
 <div class="wrap">
@@ -222,7 +225,7 @@ const KG = 0.45359237;
 const S = {
   db:null, mode:'loading', machines:[], hist:{}, prefs:{unit:'kg',zoneMin:120,zoneMax:140,kgStep:1,lbStep:2,timerGreen:120,timerMax:180},
   profile:{name:'',bodyweight:'',height:'',gym:'BlueFit Lane Cove',goal:''},
-  health:null, healthBusy:false, healthMsg:'', page:'home', histView:'sessions', sel:null, muscle:null, drafts:{}, toast:'', sheet:null, timer:null
+  locked:!(window.claude && window.claude.use), health:null, healthBusy:false, healthMsg:'', page:'home', histView:'sessions', sel:null, muscle:null, drafts:{}, toast:'', sheet:null, timer:null
 };
 const $ = s => document.querySelector(s);
 const esc = v => String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -780,8 +783,85 @@ function backupNudge(){
   return `<div class="banner" style="display:flex;align-items:center;justify-content:space-between;gap:10px"><span>${lb?'No backup for over a week.':'You haven’t backed up yet.'}</span><button class="ghost" style="border-color:currentColor;color:inherit;flex:none" data-act="backup">Back up</button></div>`;
 }
 
+/* ---------- password lock (phone app only) ---------- */
+const LOCK_KEY='bogfit-lock', SEED_URL='seed.enc.json';
+const b64 = u8 => { let s=''; for(let i=0;i<u8.length;i+=8192) s+=String.fromCharCode.apply(null, u8.subarray(i,i+8192)); return btoa(s); };
+const unb64 = s => Uint8Array.from(atob(s), c=>c.charCodeAt(0));
+async function pbkdf(pw, salt, iter){ const k=await crypto.subtle.importKey('raw', new TextEncoder().encode(pw), 'PBKDF2', false, ['deriveBits']); return new Uint8Array(await crypto.subtle.deriveBits({name:'PBKDF2', salt, iterations:iter, hash:'SHA-256'}, k, 256)); }
+const getLock = () => { try{ return JSON.parse(localStorage.getItem(LOCK_KEY)||'null'); }catch(e){ return null; } };
+async function setLock(pw){ const salt=crypto.getRandomValues(new Uint8Array(16)), iter=210000; const h=await pbkdf(pw,salt,iter); localStorage.setItem(LOCK_KEY, JSON.stringify({salt:b64(salt), iter, hash:b64(h)})); }
+async function checkLock(pw){ const L=getLock(); if(!L) return false; return b64(await pbkdf(pw, unb64(L.salt), L.iter))===L.hash; }
+async function openSeed(pw){
+  let r; try{ r=await fetch(SEED_URL, {cache:'no-store'}); }catch(e){ r=null; }
+  if(!r||!r.ok) throw Object.assign(new Error('seed'), {code:'noseed'});
+  const sd=await r.json(), bits=await pbkdf(pw, unb64(sd.salt), sd.iter);
+  const key=await crypto.subtle.importKey('raw', bits, 'AES-GCM', false, ['decrypt']);
+  let plain; try{ plain=await crypto.subtle.decrypt({name:'AES-GCM', iv:unb64(sd.iv)}, key, unb64(sd.data)); }catch(e){ throw Object.assign(new Error('pw'), {code:'badpw'}); }
+  return JSON.parse(new TextDecoder().decode(plain));
+}
+let dbReadyFn; const dbReady = new Promise(r=>dbReadyFn=r);
+function unlockNow(){ S.locked=false; S.lockMsg=''; const m=$('#main'); delete m.dataset.lock; pickSel(); render(); window.scrollTo({top:0}); }
+async function tryUnlock(pw){
+  if(S.lockBusy) return;
+  if(!pw){ S.lockMsg='Enter your password.'; render(); return; }
+  S.lockBusy=true; S.lockMsg=''; render();
+  try{
+    if(getLock()){
+      if(await checkLock(pw)){ S.lockBusy=false; unlockNow(); return; }
+      S.lockMsg='That password isn’t right.';
+    } else {
+      await dbReady;
+      const data=await openSeed(pw);
+      if(!S.machines.length && !setCount(S.hist)){ S.restore=data; await doRestore(); S.bkMsg=''; }
+      await setLock(pw); S.lockBusy=false; unlockNow(); return;
+    }
+  }catch(e){ console.error(e); S.lockMsg = e.code==='badpw' ? 'That password isn’t right.' : e.code==='noseed' ? "Couldn't reach your history. Check you're online and try again." : 'Something went wrong. Try again.'; }
+  S.lockBusy=false; render();
+}
+function lockPage(){
+  const setup=!getLock();
+  return `<div class="cover lock">
+    <section class="hero lockhero">${LOGO('logo')}<h1>BogFit</h1><p class="sub">${setup?'Enter your BogFit password to load your history.':'Enter your password to open BogFit.'}</p></section>
+    <form class="card" id="lock-form" autocomplete="on">
+      <input type="text" name="username" value="BogFit" autocomplete="username" hidden>
+      <div class="field"><label class="label" for="lock-pw">Password</label><input id="lock-pw" type="password" autocomplete="current-password" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="go"></div>
+      <button class="primary" ${S.lockBusy?'disabled':''}>${S.lockBusy?(setup?'Loading your history…':'Checking…'):(setup?'Load my history':'Unlock')}</button>
+      ${S.lockMsg?`<p class="toast" style="color:var(--under)">${esc(S.lockMsg)}</p>`:''}
+    </form></div>`;
+}
+async function changePw(){
+  const cur=$('#pw-cur').value, nw=$('#pw-new').value, cf=$('#pw-cf').value;
+  S.pwMsg=''; S.pwOk=false;
+  if(!(await checkLock(cur))) S.pwMsg='Your current password isn’t right.';
+  else if(nw.length<8) S.pwMsg='Use at least 8 characters for the new password.';
+  else if(nw!==cf) S.pwMsg='The new passwords don’t match.';
+  else { await setLock(nw); S.pwMsg='Password changed. Use the new one next time you open BogFit.'; S.pwOk=true; }
+  render();
+}
+function passwordCard(){
+  if(IS_CLAUDE) return '';
+  return `<section class="card" aria-labelledby="pw">
+    <p class="label" id="pw">Password</p>
+    <p class="meta" style="margin:0">BogFit asks for your password when you open it, and after 10 minutes away. Your history file on the website still opens with your original password.</p>
+    <form id="pw-form" style="display:flex;flex-direction:column;gap:10px">
+      <input type="text" name="username" value="BogFit" autocomplete="username" hidden>
+      <div class="field"><label class="label" for="pw-cur">Current password</label><input id="pw-cur" type="password" autocomplete="current-password" autocapitalize="off"></div>
+      <div class="row2"><div class="field"><label class="label" for="pw-new">New password</label><input id="pw-new" type="password" autocomplete="new-password" autocapitalize="off"></div>
+      <div class="field"><label class="label" for="pw-cf">Type it again</label><input id="pw-cf" type="password" autocomplete="new-password" autocapitalize="off"></div></div>
+      <div class="actions-row"><button class="ghost">Change password</button><button type="button" class="ghost" data-act="lock-now">Lock now</button></div>
+    </form>
+    ${S.pwMsg?`<p class="toast" style="${S.pwOk?'':'color:var(--under)'}">${esc(S.pwMsg)}</p>`:''}
+  </section>`;
+}
+
 /* ---------- render ---------- */
 function render(){
+  if(S.locked){
+    $('#top').hidden=true; $('#tabs').hidden=true; $('#sheetRoot').innerHTML=''; $('#timerRoot').innerHTML='';
+    const m=$('#main'), key=JSON.stringify([!!getLock(), !!S.lockBusy, S.lockMsg||'']);
+    if(m.dataset.lock!==key){ m.innerHTML=lockPage(); m.dataset.lock=key; const i=$('#lock-pw'); if(i&&!S.lockBusy) setTimeout(()=>{ try{ i.focus(); }catch(e){} }, 50); }
+    return;
+  }
   const a=document.activeElement, aid=a&&a.id, sel=(a&&'selectionStart' in a)?[a.selectionStart,a.selectionEnd]:null;
   const aval = a && (a.dataset.prof||a.dataset.pref||a.dataset.set!=null||a.id==='m-notes') ? a.value : null;
   renderChrome(); renderMain(); renderSheet();
@@ -1004,6 +1084,7 @@ function pageSettings(){
       ${sorted().map(m=>{ const tg=normT(m); return `<div class="mrow"><div class="mrow-l">${m.photo?`<img class="thumb" src="${esc(photoSrc(m.photo))}" alt="">`:`<span class="thumb ph"></span>`}<div><div class="n">${esc(m.name)}</div><p class="meta">${tg.length?tg.map(t=>MUSCLES[t].name).join(', '):'No muscles set'}</p></div></div><button class="ghost" data-act="edit-machine" data-mid="${esc(m.id)}">Edit</button></div>`; }).join('')}
       <button class="primary" style="margin-top:12px" data-act="add-machine">Add a machine</button>
     </section>
+    ${passwordCard()}
     ${backupCard()}
     <section class="card" style="gap:0">
       <p class="label" style="margin-bottom:8px">Connections</p>
@@ -1147,6 +1228,7 @@ document.addEventListener('click', ev=>{
     case 'backup': if(S.page!=='settings' && !S.bkBusy){ S.bkMsg=''; } doBackup(); break;
     case 'restore-yes': doRestore(); break;
     case 'restore-no': S.restore=null; render(); break;
+    case 'lock-now': S.locked=true; render(); break;
     case 'photo-ask': S.photoConfirm=m.id; render(); break;
     case 'photo-del': { const id=m.photo; S.photoConfirm=null; const y={...m}; delete y.photo; saveMachine(y); if(ASSETS&&id) ASSETS.delete(id).catch(()=>{}); render(); break; }
     case 'add-setting': {
@@ -1155,6 +1237,10 @@ document.addEventListener('click', ev=>{
     case 'del-setting': {
       const st=(m.settings||[]).slice(); st.splice(Number(b.dataset.i),1); saveMachine({...m, settings:st}); render(); break; }
   }
+});
+document.addEventListener('submit', ev=>{
+  if(ev.target.id==='lock-form'){ ev.preventDefault(); tryUnlock($('#lock-pw').value); }
+  else if(ev.target.id==='pw-form'){ ev.preventDefault(); changePw(); }
 });
 document.addEventListener('input', ev=>{
   const t=ev.target, m=cur(); if(!m) return;
@@ -1178,7 +1264,7 @@ document.addEventListener('keydown', ev=>{ const g=ev.target.closest&&ev.target.
 $('#logoSlot').innerHTML=LOGO('logo');
 try{ S.sel=localStorage.getItem('tul-sel'); }catch(e){}
 function pickSel(){ if(!S.machines.find(m=>m.id===S.sel)){ const f=sorted()[0]; S.sel=f?f.id:null; } }
-function goLocal(){ S.mode='local'; pickSel(); render(); }
+function goLocal(){ S.mode='local'; pickSel(); render(); dbReadyFn(); }
 render();
 const boot = IS_CLAUDE ? window.claude.use('db') : (window.indexedDB ? localStores().then(L=>{ ASSETS=L.assets; return L.db; }) : Promise.resolve(null));
 if(IS_CLAUDE) window.claude.use('assets').then(a=>{ ASSETS=a; if(S.page==='session') render(); }).catch(()=>{});
@@ -1188,6 +1274,7 @@ if(!IS_CLAUDE && 'serviceWorker' in navigator && (location.protocol==='https:' |
   let hiddenAt=0;
   document.addEventListener('visibilitychange', ()=>{
     if(document.hidden){ hiddenAt=Date.now(); return; }
+    if(hiddenAt && Date.now()-hiddenAt > 10*60*1000 && !S.timer && !S.locked){ S.locked=true; render(); }
     if(hiddenAt && Date.now()-hiddenAt > 60*60*1000 && !S.timer && !S.sheet && !S.bkBusy && !S.healthBusy && navigator.onLine) location.reload();
   });
 }
@@ -1195,7 +1282,7 @@ const fallback = setTimeout(()=>{ if(S.mode==='loading') goLocal(); }, 12000);
 boot.then(db=>{
   if(!db){ clearTimeout(fallback); goLocal(); return; }
   S.db=db; let got={m:false,h:false};
-  const ready=()=>{ if(got.m&&got.h&&S.mode==='loading'){ clearTimeout(fallback); S.mode='db'; } if(S.mode!=='loading'){ pickSel(); render(); } };
+  const ready=()=>{ if(got.m&&got.h&&S.mode==='loading'){ clearTimeout(fallback); S.mode='db'; dbReadyFn(); } if(S.mode!=='loading'){ pickSel(); render(); } };
   const onErr=e=>{ console.error(e); if(S.mode==='loading'){ clearTimeout(fallback); S.db=null; goLocal(); } };
   db.collection('machines').onSnapshot(snap=>{ S.machines=snap.docs.map(d=>({id:d.id,...d.data()})); got.m=true; ready(); }, onErr);
   db.collection('history').onSnapshot(snap=>{ const h={}; snap.docs.forEach(d=>h[d.id]={...d.data()}); S.hist=h; got.h=true; ready(); }, onErr);
