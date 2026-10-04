@@ -1325,7 +1325,7 @@ function startTimer(){
   const m=cur(); if(!m) return;
   S.timer={start:performance.now()};
   try{ navigator.wakeLock && navigator.wakeLock.request('screen').then(w=>wake=w).catch(()=>{}); }catch(e){}
-  const g=GREEN_AT(), mx=MAX_T(), mm=s=>Math.floor(s/60)+':'+String(s%60).padStart(2,'0');
+  const g=GREEN_AT(), mx=MAX_T(), mm=s=>String(s);
   const d=draft(m), last=entries(m.id)[0], u=unit();
   const w = d.weight!=='' ? r2(parseFloat(String(d.weight).replace(',','.'))) : (last ? inUnit(last) : null);
   const sets=(m.settings||[]).filter(x=>(x.label||'').trim()||(x.value||'').trim());
@@ -1335,7 +1335,7 @@ function startTimer(){
       ${sets.length?`<div class="tset">${sets.map(x=>`<div><span>${esc(x.label||'Setting')}</span><strong>${esc(x.value||'—')}</strong></div>`).join('')}</div>`:''}
       ${note?`<div class="tnote">${esc(note.length>140?note.slice(0,140)+'…':note)}</div>`:''}
     </div>`;
-  $('#timerRoot').innerHTML = `<div class="timer" id="tm" role="dialog" aria-label="Set timer"><div class="mname">${esc(m.name)}</div>${info}<div class="clock" id="tm-c" aria-live="off"></div>
+  $('#timerRoot').innerHTML = `<div class="timer" id="tm" role="dialog" aria-label="Set timer"><div class="mname">${esc(m.name)}</div>${info}<div class="clock" id="tm-c" aria-live="off"></div><div class="phase" style="margin-top:-14px">seconds</div>
     <div class="tline"><div class="mark" style="left:${g/mx*100}%"></div><div class="fill" id="tm-f"></div></div>
     <div class="tscale"><span style="left:0">0</span><span style="left:${g/mx*100}%">${mm(g)}</span><span style="left:100%">${mm(mx)}</span></div>
     <div class="tact"><button class="cancel" data-act="timer-cancel">Cancel</button><button class="stop" data-act="timer-stop">Stop</button></div></div>`;
@@ -1344,7 +1344,7 @@ function startTimer(){
 function tick(){
   const t=S.timer; if(!t) return;
   const mx=MAX_T(), s=Math.min(mx, Math.floor((performance.now()-t.start)/1000)), tm=$('#tm');
-  $('#tm-c').textContent=Math.floor(s/60)+':'+String(s%60).padStart(2,'0'); $('#tm-f').style.width=(s/mx*100)+'%';
+  $('#tm-c').textContent=String(s); $('#tm-f').style.width=(s/mx*100)+'%';
   tm.className='timer '+(s<GREEN_AT()?'red':'green');
   if(s>=mx){ endTimer(true); return; }
   t.raf=requestAnimationFrame(tick);
