@@ -19,4 +19,4 @@ BogFit exists in two places that must always match. Every improvement goes to BO
 - This repo is public. Never commit Rob's workout history, health data, or backup files in readable form.
 - `seed.enc.json` is Rob's history encrypted (AES-GCM, key from PBKDF2-SHA256, 600k iterations) with his password. A new phone loads it on first open after he enters the password. Never write the password into the repo, memory or code. To refresh it, ask Rob for the password and re-encrypt a fresh backup.
 - The phone app is locked by password (`S.locked`); the lock is never shown inside Claude (`IS_CLAUDE`).
-- Rob's requirements: whole kg only; target 120–140 s; one timer, red until 2:00 then green, stops at 3:00; lists alphabetical; logo = blue-to-green ring with B; BOGFIT wordmark grey and subtle.
+- Rob's requirements: whole kg only; next-set weight from last set's seconds (under 110 s −1 kg, 110–130 s same, over 130 s +1 kg, 180 s +2 kg); stopping the timer saves the set and Save becomes Edit; target 120–140 s; one timer, red until 2:00 then green, stops at 3:00; lists alphabetical; logo = blue-to-green ring with B; BOGFIT wordmark grey and subtle.

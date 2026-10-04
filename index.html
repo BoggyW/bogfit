@@ -325,8 +325,14 @@ function saveProfile(p){
   S.profile = {...S.profile, ...p};
   if(S.db) write('prefs/profile', ()=>S.db.doc('prefs/profile').set(S.profile));
 }
+/* Next-set weight from the previous set's time: under 110 s drop 1 kg, 110-130 s stay, over 130 s add 1 kg, 180 s (full time) add 2 kg. */
+function nextStep(l){
+  const s=l&&l.seconds; if(s==null) return 0;
+  const kg = s>=180 ? 2 : s>130 ? 1 : s<110 ? -1 : 0;
+  return unit()==='lb' ? kg*2 : kg;
+}
 function draft(m){
-  if(!S.drafts[m.id]){ const l=entries(m.id)[0]; S.drafts[m.id]={weight: l?String(inUnit(l)):'', seconds:'', reps:'', date:today()}; }
+  if(!S.drafts[m.id]){ const l=entries(m.id)[0]; S.drafts[m.id]={weight: l?String(Math.max(0, inUnit(l)+nextStep(l))):'', seconds:'', reps:'', date:today()}; }
   return S.drafts[m.id];
 }
 
@@ -971,7 +977,7 @@ function pageSession(){
   if(!m) return `<div class="card center"><h2>No machines yet</h2><p class="empty-note">Add the machines you use, then log each set's weight and time.</p><button class="primary" style="max-width:260px" data-act="add-machine">Add your first machine</button></div>`;
   const u=unit(), d=draft(m), ls=entries(m.id), last=ls[0], tg=normT(m);
   const lastLine = last
-    ? `<span>Last time ${fmtDate(last.date)}: <b>${inUnit(last)} ${uLabel(u)}</b>${last.seconds!=null?' · <b>'+last.seconds+' s</b>':''}${last.reps?' · '+last.reps+' reps':''}</span>`
+    ? `<span>Last time ${fmtDate(last.date)}: <b>${inUnit(last)} ${uLabel(u)}</b>${last.seconds!=null?' · <b>'+last.seconds+' s</b>':''}${last.reps?' · '+last.reps+' reps':''}</span>${last.seconds!=null?(()=>{ const n=nextStep(last); return n>0?`<span class="pill up">Up ${n} ${uLabel(u)}</span>`:n<0?`<span class="pill down">Down ${-n} ${uLabel(u)}</span>`:`<span class="pill hold">Same weight</span>`; })():''}`
     : `<span>No sets logged yet. Enter a starting weight.</span>`;
   const settings = (m.settings||[]);
   const todays = allSets().filter(e=>e.date===today()).sort((a,b)=>byName(mById(a.mid),mById(b.mid))||(a.ts||0)-(b.ts||0));
