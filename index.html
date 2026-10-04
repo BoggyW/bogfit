@@ -160,7 +160,7 @@ body{padding-bottom:calc(96px + env(safe-area-inset-bottom,0px))}
 .brandbtn .brand{font-weight:600;font-size:16px;letter-spacing:.16em;color:var(--muted)}
 .pagetitle{font-family:var(--f-display);font-weight:600;font-size:18px;color:var(--muted);letter-spacing:.03em;margin:0}
 .tabs{position:fixed;left:0;right:0;bottom:0;z-index:15;background:var(--surface);border-top:1px solid var(--line);padding:6px 8px calc(6px + env(safe-area-inset-bottom,0px));display:flex;justify-content:center}
-.tabs .in{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:2px;width:100%;max-width:620px}
+.tabs .in{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:2px;width:100%;max-width:620px}
 .tab{border:0;background:transparent;display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 2px;border-radius:10px;color:var(--muted);font-size:11.5px;font-weight:600}
 .tab svg{width:24px;height:24px}
 .tab[aria-current="page"]{color:var(--accent);background:var(--accent-soft)}
@@ -179,6 +179,7 @@ body{padding-bottom:calc(96px + env(safe-area-inset-bottom,0px))}
 .stat span{font-size:12px;opacity:.75}
 .go{border:0;border-radius:14px;background:var(--zone);color:#fff;font-family:var(--f-display);font-weight:700;font-size:26px;letter-spacing:.04em;text-transform:uppercase;padding:18px;width:100%}
 .tiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.tiles > .tile:last-child:nth-child(odd){grid-column:1/-1}
 .tile{border:0;background:var(--surface);border-radius:14px;padding:14px;text-align:left;display:flex;flex-direction:column;gap:6px;min-width:0}
 .tile svg{width:26px;height:26px;color:var(--accent)}
 .tile b{font-family:var(--f-display);font-size:22px;line-height:1}
@@ -228,6 +229,7 @@ label.go{display:block;font-size:22px}
 .htile .hs{font-size:12.5px;color:var(--muted)}
 .down{color:var(--accent);font-weight:600}
 .vlinks{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}.vlinks .vlink{margin-top:0}
+.vlinks.sm{margin-top:5px;gap:6px}.vlinks.sm .vlink{font-size:13px;padding:3px 9px 3px 6px}.vlinks.sm .vlink svg{width:14px;height:14px}
 .vlink{display:inline-flex;align-items:center;gap:5px;margin-top:6px;padding:5px 11px 5px 8px;border-radius:999px;background:var(--accent-soft);color:var(--accent);font-weight:600;font-size:14px;text-decoration:none}
 .lcstar{width:.8em;height:.8em;color:#E0A100;vertical-align:-.05em;margin-left:.25em;flex:none}
 .lctoggle{display:flex;align-items:center;gap:10px;border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:11px 14px;font-weight:600;text-align:left;width:100%}
@@ -311,9 +313,10 @@ const ICON = {
   history:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V9M10 19V5M16 19v-7M22 19H2"/></svg>',
   target:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.4" fill="currentColor"/></svg>',
   profile:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.2-4 4.2-6 8-6s6.8 2 8 6"/></svg>',
+  machines:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3v18M18 3v18M9 6h6v3H9zM9 11h6v3H9zM9 16h6v3H9z"/></svg>',
   settings:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>'
 };
-const PAGES = {session:'Session', history:'History', target:'Target', profile:'Profile', settings:'Settings'};
+const PAGES = {session:'Session', machines:'Machines', history:'History', target:'Target', profile:'Profile', settings:'Settings'};
 
 /* ---------- writes (one at a time per document) ---------- */
 const chains = {};
@@ -412,6 +415,13 @@ function videoId(u){
     if(h==='youtu.be') return x.pathname.slice(1).split('/')[0]||null;
     if(h.endsWith('youtube.com')||h.endsWith('youtube-nocookie.com')){ if(x.searchParams.get('v')) return x.searchParams.get('v'); const mm=x.pathname.match(/\/(?:shorts|embed|live)\/([\w-]{6,})/); return mm?mm[1]:null; }
   }catch(e){} return null;
+}
+function linkButtons(m, small){
+  if(!m||!m.video) return '';
+  const id=videoId(m.video), yt=/youtu\.?be/.test(m.video);
+  const play='<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13l11-6.5z"/></svg>';
+  const doc='<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M7 3h7l4 4v14H7zM14 3v4h4M10 12h5M10 16h5"/></svg>';
+  return `<div class="vlinks${small?' sm':''}">${yt?'':`<a class="vlink" href="${esc(m.video)}" target="_blank" rel="noopener">${doc}Instructions</a>`}${id?`<a class="vlink" href="https://www.youtube.com/watch?v=${encodeURIComponent(id)}" target="_blank" rel="noopener">${play}Video</a>`:''}</div>`;
 }
 function videoHref(m){ if(!m||!m.video) return ''; const id=videoId(m.video); return id ? 'https://www.youtube.com/watch?v='+encodeURIComponent(id) : m.video; }
 
@@ -1043,7 +1053,7 @@ function renderMain(){
   const main=$('#main');
   if(S.mode==='loading') return;
   const banner = S.mode==='local' ? `<div class="banner">${IS_CLAUDE?"Not saving: this view can't reach your saved data. Open the page in Claude while signed in to keep your history.":"Not saving: this browser won't let BogFit store data. Turn off Private Browsing, or open BogFit from its Home Screen icon."}</div>` : '';
-  const fn = {home:pageHome, session:pageSession, history:pageHistory, target:pageTarget, profile:pageProfile, settings:pageSettings, health:pageHealth, healthdata:pageHealthData}[S.page] || pageHome;
+  const fn = {home:pageHome, session:pageSession, history:pageHistory, target:pageTarget, profile:pageProfile, machines:pageMachines, settings:pageSettings, health:pageHealth, healthdata:pageHealthData}[S.page] || pageHome;
   main.innerHTML = banner + fn();
 }
 const setLine = e => { const u=unit(); return `<span class="v">${inUnit(e)}<small>${uLabel(u)}</small></span><span class="v ${zoneOf(e.seconds)}">${e.seconds!=null?e.seconds+'<small>s</small>':(e.reps?e.reps+'<small>reps</small>':'—')}</span>`; };
@@ -1073,7 +1083,8 @@ function pageHome(){
       <button class="tile" data-go="history">${ICON.history}<b>History</b><span>Every session and machine, with charts</span></button>
       <button class="tile" data-go="target">${ICON.target}<b>Target</b><span>Pick a muscle, get the best machine</span></button>
       <button class="tile" data-go="profile">${ICON.profile}<b>Profile</b><span>You, your gym and your progress</span></button>
-      <button class="tile" data-go="settings">${ICON.settings}<b>Settings</b><span>Units, target time, machines</span></button>
+      <button class="tile" data-go="machines">${ICON.machines}<b>Machines</b><span>Photos, instructions and settings for each machine</span></button>
+      <button class="tile" data-go="settings">${ICON.settings}<b>Settings</b><span>Units, target time, password, backup</span></button>
     </div>
     ${last?`<section class="card"><p class="label">Last session · ${fmtLong(last.date)}</p>
       <div class="mini-map">${bodySvg(lastTg, true)}</div>
@@ -1093,8 +1104,7 @@ function pageSession(){
   const todays = allSets().filter(e=>e.date===today()).sort((a,b)=>byName(mById(a.mid),mById(b.mid))||(a.ts||0)-(b.ts||0));
   return `
   <section class="head">
-    <div style="display:flex;gap:12px;align-items:center;min-width:0">${micon(m,'mtile lg')}<div style="min-width:0"><h1>${esc(m.name)}${lcStar(m)}</h1><div class="meta">${tg.length?tg.map(t=>MUSCLES[t].name).join(' · '):esc(m.muscle||'')}</div>${m.video?`<div class="vlinks">${(()=>{ const id=videoId(m.video), yt=/youtu\.?be/.test(m.video); const play='<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13l11-6.5z"/></svg>', doc='<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M7 3h7l4 4v14H7zM14 3v4h4M10 12h5M10 16h5"/></svg>';
-      return (yt?'':`<a class="vlink" href="${esc(m.video)}" target="_blank" rel="noopener">${doc}Instructions</a>`) + (id?`<a class="vlink" href="https://www.youtube.com/watch?v=${encodeURIComponent(id)}" target="_blank" rel="noopener">${play}Video</a>`:''); })()}</div>`:''}</div></div>
+    <div style="display:flex;gap:12px;align-items:center;min-width:0">${micon(m,'mtile lg')}<div style="min-width:0"><h1>${esc(m.name)}${lcStar(m)}</h1><div class="meta">${tg.length?tg.map(t=>MUSCLES[t].name).join(' · '):esc(m.muscle||'')}</div>${linkButtons(m)}</div></div>
     <button class="ghost" data-act="edit-machine">Edit</button>
   </section>
   <section class="card" aria-labelledby="lg">
@@ -1214,6 +1224,13 @@ function pageProfile(){
 }
 
 /* ---------- settings ---------- */
+function pageMachines(){
+  return `<section class="card" style="gap:0">
+      <p class="label" style="margin-bottom:8px">${S.machines.length} machines</p>
+      ${sorted().map(m=>{ const tg=normT(m); return `<div class="mrow"><div class="mrow-l">${m.photo?`<img class="thumb" src="${esc(photoSrc(m.photo))}" alt="">`:micon(m)}<div><div class="n">${esc(m.name)}${lcStar(m)}</div><p class="meta">${tg.length?tg.map(t=>MUSCLES[t].name).join(', '):'No muscles set'}</p>${linkButtons(m,true)}</div></div><button class="ghost" data-act="edit-machine" data-mid="${esc(m.id)}">Edit</button></div>`; }).join('')}
+      <button class="primary" style="margin-top:12px" data-act="add-machine">Add a machine</button>
+    </section>`;
+}
 function pageSettings(){
   const P=S.prefs;
   return `<section class="card">
@@ -1237,11 +1254,6 @@ function pageSettings(){
         <div class="field"><label class="label" for="g-lb">lbs</label><input id="g-lb" data-pref="lbStep" inputmode="decimal" value="${P.lbStep}"></div>
       </div>
       <small class="meta" style="margin:0">Each machine can override the step in its own settings.</small>
-    </section>
-    <section class="card" style="gap:0">
-      <p class="label" style="margin-bottom:8px">Machines · ${S.machines.length}</p>
-      ${sorted().map(m=>{ const tg=normT(m); return `<div class="mrow"><div class="mrow-l">${m.photo?`<img class="thumb" src="${esc(photoSrc(m.photo))}" alt="">`:micon(m)}<div><div class="n">${esc(m.name)}${lcStar(m)}</div><p class="meta">${tg.length?tg.map(t=>MUSCLES[t].name).join(', '):'No muscles set'}</p></div></div><button class="ghost" data-act="edit-machine" data-mid="${esc(m.id)}">Edit</button></div>`; }).join('')}
-      <button class="primary" style="margin-top:12px" data-act="add-machine">Add a machine</button>
     </section>
     ${passwordCard()}
     ${backupCard()}
