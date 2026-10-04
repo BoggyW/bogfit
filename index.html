@@ -272,13 +272,13 @@ const unit = () => S.prefs.unit==='lb'?'lb':'kg';
 const uLabel = u => u==='lb'?'lbs':'kg';
 const conv = (w,from,to) => from===to ? w : (from==='lb' ? w*KG : w/KG);
 const r1 = n => Math.round(n*10)/10;
-const fmt = n => { const v=r1(n); return Number.isInteger(v)?String(v):v.toFixed(1); };
+const fmt = n => { const v=Math.round(n*100)/100; return String(v); };
 /* Weights follow each machine's increment (0.5, 1, 2, 2.5, 5 or 10 kg). */
 const INC_KG=[0.5,1,2,2.5,5,10], INC_LB=[1,2,2.5,5,10,15];
 const r2 = n => Math.round(n*100)/100;
 const inUnit = e => { const from=e.unit||'kg', v=conv(Number(e.weight)||0, from, unit()); return from===unit() ? r2(v) : Math.round(v); };
 const stepFor = m => { const v = unit()==='lb' ? (Number(m&&m.incLb)||Number(S.prefs.lbStep)||2) : (Number(m&&m.incKg)||Number(S.prefs.kgStep)||1); return v>0 ? v : 1; };
-const snap = (w, st) => Math.max(0, r2(Math.round(w/st)*st));
+const snap = (w, st) => Math.max(0, r2(w));
 const pDate = s => { const [y,m,d]=s.split('-').map(Number); return new Date(y,m-1,d); };
 const fmtDate = s => pDate(s).toLocaleDateString('en-AU',{day:'numeric',month:'short'});
 const fmtLong = s => pDate(s).toLocaleDateString('en-AU',{weekday:'short',day:'numeric',month:'short',year: pDate(s).getFullYear()===new Date().getFullYear()?undefined:'numeric'});
@@ -1249,7 +1249,7 @@ function renderSheet(){
       <div class="field"><span class="label">Muscles it works</span><div class="mchips">${Object.keys(MUSCLES).sort((a,b)=>MUSCLES[a].name.localeCompare(MUSCLES[b].name)).map(k=>`<button class="mchip" data-mt="${k}" aria-pressed="${sh.targets.includes(k)}">${MUSCLES[k].name}</button>`).join('')}</div><small>The first one you pick counts as its main muscle.</small></div>
       <div class="field"><label class="label" for="f-video">How-to video link (optional)</label><input id="f-video" type="url" inputmode="url" autocomplete="off" autocapitalize="off" value="${esc(m.video||'')}" placeholder="Paste the link from the machine's QR code"><small>Scan the QR code on the machine with your iPhone camera, open it, then copy the link and paste it here. YouTube links work too.</small></div>
       <div class="row2">
-        <div class="field" style="grid-column:1/-1"><span class="label">Weight increment (${uLabel(unit())})</span><div class="mchips" role="group" aria-label="Weight increment">${(()=>{ const curInc = sh.inc ?? (Number(inc)||Number(unit()==='lb'?S.prefs.lbStep:S.prefs.kgStep)||1); const opts=(unit()==='lb'?INC_LB:INC_KG).slice(); if(!opts.includes(curInc)) opts.push(curInc), opts.sort((a,b)=>a-b); return opts.map(v=>`<button type="button" class="mchip" data-inc="${v}" aria-pressed="${v===curInc}">${fmt(v)} ${uLabel(unit())}</button>`).join(''); })()}</div><small>How much the weight goes up or down on this machine. + and − and the next-set suggestion use it.</small></div>
+        <div class="field" style="grid-column:1/-1"><label class="label" for="f-inc">Weight increment (${uLabel(unit())})</label>${(()=>{ const curInc = Number(inc)||Number(unit()==='lb'?S.prefs.lbStep:S.prefs.kgStep)||1; return `<input id="f-inc" inputmode="decimal" autocomplete="off" value="${fmt(curInc)}" style="max-width:140px"><div class="mchips" role="group" aria-label="Common increments" style="margin-top:6px">${(unit()==='lb'?INC_LB:INC_KG).map(v=>`<button type="button" class="mchip" data-inc="${v}" aria-pressed="${v===curInc}">${fmt(v)}</button>`).join('')}</div>`; })()}<small>Type how much the weight goes up or down on this machine, or tap a common one. + and − and the next-set suggestion use it.</small></div>
         <div class="field"><label class="label" for="f-code">Code (optional)</label><input id="f-code" value="${esc(m.code||'')}" placeholder="e.g. B6"></div>
       </div>
       <p class="toast" id="f-err" style="color:var(--under)"></p>
@@ -1336,7 +1336,7 @@ function showToast(msg, bad){ S.toast=msg; const el=$('#toast'); if(el){ el.text
 function selectMachine(id){ S.sel=id; try{localStorage.setItem('tul-sel',id)}catch(e){} }
 document.addEventListener('click', ev=>{
   const b=ev.target.closest('[data-go],[data-sel],[data-start],[data-hv],[data-mt],[data-mi],[data-inc],[data-act],[data-unit],[data-muscle]'); if(!b) return;
-  if(b.dataset.inc){ S.sheet.inc=Number(b.dataset.inc); b.parentNode.querySelectorAll('[data-inc]').forEach(x=>x.setAttribute('aria-pressed', x===b)); return; }
+  if(b.dataset.inc){ const f=$('#f-inc'); if(f) f.value=b.dataset.inc; b.parentNode.querySelectorAll('[data-inc]').forEach(x=>x.setAttribute('aria-pressed', x===b)); return; }
   if(b.dataset.mi){ S.sheet.icon=b.dataset.mi; b.parentNode.querySelectorAll('[data-mi]').forEach(x=>x.setAttribute('aria-pressed', x===b)); return; }
   if(b.dataset.go){ go(b.dataset.go); return; }
   if(b.dataset.start){ selectMachine(b.dataset.start); go('session'); return; }
@@ -1355,7 +1355,9 @@ document.addEventListener('click', ev=>{
     case 'unconfirm': S.sheet.confirm=false; resheet(); break;
     case 'save-machine': {
       const name=$('#f-name').value.trim(); if(!name){ $('#f-err').textContent='Give the machine a name.'; $('#f-name').focus(); return; }
-      const incV=S.sheet.inc; const base = S.sheet.id ? {...mById(S.sheet.id)} : {id:'m-'+rid(), settings:[], notes:'', order:(Math.max(-1,...S.machines.map(x=>x.order??0))+1)};
+      const incRaw=($('#f-inc')&&$('#f-inc').value||'').trim().replace(',','.'), incV=incRaw===''?null:r2(parseFloat(incRaw));
+      if(incRaw!=='' && !(incV>0 && incV<=200)){ $('#f-err').textContent='Enter an increment above 0, like 1, 2.5 or 5.'; $('#f-inc').focus(); return; }
+      const base = S.sheet.id ? {...mById(S.sheet.id)} : {id:'m-'+rid(), settings:[], notes:'', order:(Math.max(-1,...S.machines.map(x=>x.order??0))+1)};
       base.name=name; base.code=$('#f-code').value.trim(); if(S.sheet.icon) base.icon=S.sheet.icon; else if(!base.icon) base.icon=guessIcon(name);
       { const v=($('#f-video')&&$('#f-video').value||'').trim(); if(v && !/^https?:\/\//i.test(v)){ $('#f-err').textContent='That video link doesn’t look right. It should start with https://'; return; } if(v) base.video=v; else delete base.video; } base.targets=S.sheet.targets.slice(); base.muscle=base.targets.map(t=>MUSCLES[t].name).slice(0,2).join(', ');
       const key=unit()==='lb'?'incLb':'incKg'; if(incV>0){ base[key]=incV; if(S.sheet.id) delete S.drafts[base.id]; }
@@ -1405,6 +1407,7 @@ document.addEventListener('submit', ev=>{
   else if(ev.target.id==='pw-form'){ ev.preventDefault(); changePw(); }
 });
 document.addEventListener('input', ev=>{
+  if(ev.target.id==='f-inc'){ const v=parseFloat(ev.target.value.replace(',','.')); document.querySelectorAll('[data-inc]').forEach(x=>x.setAttribute('aria-pressed', Number(x.dataset.inc)===v)); return; }
   const t=ev.target, m=cur(); if(!m) return;
   const d=S.drafts[m.id]; if(!d) return;
   if(/^d-(weight|seconds|reps|date)$/.test(t.id) && S.justSaved && S.justSaved.mid===m.id){ S.justSaved=null; const b=document.querySelector('[data-act="edit-entry"].alt'); if(b){ b.outerHTML='<button class="primary" data-act="save-set">Save set</button>'; } }
