@@ -226,8 +226,6 @@ label.go{display:block;font-size:22px}
 .mtile{width:44px;height:44px;border-radius:10px;background:var(--accent-soft);color:var(--accent);display:inline-flex;align-items:center;justify-content:center;flex:none}
 .mtile .mi{width:28px;height:28px}
 .mtile.lg{width:52px;height:52px;border-radius:12px}.mtile.lg .mi{width:34px;height:34px}
-.chip .mi{width:18px;height:18px;flex:none}
-.chip[aria-current="true"] .mi{color:var(--bg)}
 .ipick{display:grid;grid-template-columns:repeat(auto-fill,minmax(64px,1fr));gap:8px}
 .ipick button{border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:8px 4px 6px;display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--ink);font-size:11px;line-height:1.15;text-align:center}
 .ipick button .mi{width:28px;height:28px;color:var(--accent)}
@@ -1000,7 +998,7 @@ function renderChrome(){
 }
 function renderStrip(){
   const ms = sorted();
-  $('#strip').innerHTML = ms.map(m=>{ const l=entries(m.id)[0]; return `<button class="chip" data-sel="${esc(m.id)}" aria-current="${m.id===S.sel}"><span class="dot ${l?zoneOf(l.seconds):''}"></span>${iconSvg(iconKey(m))}${esc(m.name)}</button>`; }).join('')
+  $('#strip').innerHTML = ms.map(m=>{ const l=entries(m.id)[0]; return `<button class="chip" data-sel="${esc(m.id)}" aria-current="${m.id===S.sel}"><span class="dot ${l?zoneOf(l.seconds):''}"></span>${esc(m.name)}</button>`; }).join('')
     + (S.mode==='loading' ? '' : `<button class="chip add" data-act="add-machine">+ Add machine</button>`);
   const c=$('#strip [aria-current="true"]'); if(c && !renderStrip.done){ c.scrollIntoView({inline:'center',block:'nearest'}); renderStrip.done=true; }
 }
