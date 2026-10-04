@@ -273,8 +273,12 @@ const uLabel = u => u==='lb'?'lbs':'kg';
 const conv = (w,from,to) => from===to ? w : (from==='lb' ? w*KG : w/KG);
 const r1 = n => Math.round(n*10)/10;
 const fmt = n => { const v=r1(n); return Number.isInteger(v)?String(v):v.toFixed(1); };
-const inUnit = e => Math.round(conv(Number(e.weight)||0, e.unit||'kg', unit()));
-const stepFor = m => Math.max(1, Math.round(unit()==='lb' ? (Number(m.incLb)||S.prefs.lbStep||2) : (Number(m.incKg)||S.prefs.kgStep||1)));
+/* Weights follow each machine's increment (0.5, 1, 2, 2.5, 5 or 10 kg). */
+const INC_KG=[0.5,1,2,2.5,5,10], INC_LB=[1,2,2.5,5,10,15];
+const r2 = n => Math.round(n*100)/100;
+const inUnit = e => { const from=e.unit||'kg', v=conv(Number(e.weight)||0, from, unit()); return from===unit() ? r2(v) : Math.round(v); };
+const stepFor = m => { const v = unit()==='lb' ? (Number(m&&m.incLb)||Number(S.prefs.lbStep)||2) : (Number(m&&m.incKg)||Number(S.prefs.kgStep)||1); return v>0 ? v : 1; };
+const snap = (w, st) => Math.max(0, r2(Math.round(w/st)*st));
 const pDate = s => { const [y,m,d]=s.split('-').map(Number); return new Date(y,m-1,d); };
 const fmtDate = s => pDate(s).toLocaleDateString('en-AU',{day:'numeric',month:'short'});
 const fmtLong = s => pDate(s).toLocaleDateString('en-AU',{weekday:'short',day:'numeric',month:'short',year: pDate(s).getFullYear()===new Date().getFullYear()?undefined:'numeric'});
@@ -334,14 +338,15 @@ function saveProfile(p){
   S.profile = {...S.profile, ...p};
   if(S.db) write('prefs/profile', ()=>S.db.doc('prefs/profile').set(S.profile));
 }
-/* Next-set weight from the previous set's time: under 110 s drop 1 kg, 110-130 s stay, over 130 s add 1 kg, 180 s (full time) add 2 kg. */
-function nextStep(l){
+/* Next-set weight from the previous set's time, in the machine's increments:
+   under 110 s down one step, 110-130 s stay, over 130 s up one step, 180 s (full time) up two steps. */
+function nextStep(l, m){
   const s=l&&l.seconds; if(s==null) return 0;
-  const kg = s>=180 ? 2 : s>130 ? 1 : s<110 ? -1 : 0;
-  return unit()==='lb' ? kg*2 : kg;
+  const n = s>=180 ? 2 : s>130 ? 1 : s<110 ? -1 : 0;
+  return r2(n*stepFor(m));
 }
 function draft(m){
-  if(!S.drafts[m.id]){ const l=entries(m.id)[0]; S.drafts[m.id]={weight: l?String(Math.max(0, inUnit(l)+nextStep(l))):'', seconds:'', reps:'', date:today()}; }
+  if(!S.drafts[m.id]){ const l=entries(m.id)[0]; S.drafts[m.id]={weight: l?String(snap(inUnit(l)+nextStep(l,m), stepFor(m))):'', seconds:'', reps:'', date:today()}; }
   return S.drafts[m.id];
 }
 
@@ -1061,7 +1066,7 @@ function pageSession(){
   if(!m) return `<div class="card center"><h2>No machines yet</h2><p class="empty-note">Add the machines you use, then log each set's weight and time.</p><button class="primary" style="max-width:260px" data-act="add-machine">Add your first machine</button></div>`;
   const u=unit(), d=draft(m), ls=entries(m.id), last=ls[0], tg=normT(m);
   const lastLine = last
-    ? `<span>Last time ${fmtDate(last.date)}: <b>${inUnit(last)} ${uLabel(u)}</b>${last.seconds!=null?' · <b>'+last.seconds+' s</b>':''}${last.reps?' · '+last.reps+' reps':''}</span>${last.seconds!=null?(()=>{ const n=nextStep(last); return n>0?`<span class="pill up">Up ${n} ${uLabel(u)}</span>`:n<0?`<span class="pill down">Down ${-n} ${uLabel(u)}</span>`:`<span class="pill hold">Same weight</span>`; })():''}`
+    ? `<span>Last time ${fmtDate(last.date)}: <b>${inUnit(last)} ${uLabel(u)}</b>${last.seconds!=null?' · <b>'+last.seconds+' s</b>':''}${last.reps?' · '+last.reps+' reps':''}</span>${last.seconds!=null?(()=>{ const n=nextStep(last,m); return n>0?`<span class="pill up">Up ${fmt(n)} ${uLabel(u)}</span>`:n<0?`<span class="pill down">Down ${fmt(-n)} ${uLabel(u)}</span>`:`<span class="pill hold">Same weight</span>`; })():''}`
     : `<span>No sets logged yet. Enter a starting weight.</span>`;
   const settings = (m.settings||[]);
   const todays = allSets().filter(e=>e.date===today()).sort((a,b)=>byName(mById(a.mid),mById(b.mid))||(a.ts||0)-(b.ts||0));
@@ -1075,7 +1080,7 @@ function pageSession(){
     <div class="last">${lastLine}</div>
     <div class="weight">
       <button class="step" data-act="dec" aria-label="Decrease weight">−</button>
-      <label class="big"><input id="d-weight" inputmode="numeric" value="${esc(d.weight)}" aria-label="Weight in ${uLabel(u)}"><span>${uLabel(u)}</span></label>
+      <label class="big"><input id="d-weight" inputmode="decimal" value="${esc(d.weight)}" aria-label="Weight in ${uLabel(u)}"><span>${uLabel(u)}</span></label>
       <button class="step" data-act="inc" aria-label="Increase weight">+</button>
     </div>
     <div class="secs">
@@ -1086,7 +1091,7 @@ function pageSession(){
       <div class="field"><label class="label" for="d-reps">Reps (optional)</label><input id="d-reps" inputmode="numeric" value="${esc(d.reps)}"></div>
       <div class="field"><label class="label" for="d-date">Date</label><input id="d-date" type="date" value="${esc(d.date)}"></div>
     </div>
-    <small class="meta" style="margin:0">Target ${S.prefs.zoneMin}–${S.prefs.zoneMax} s. +/− moves ${stepFor(m)} ${uLabel(u)}.</small>
+    <small class="meta" style="margin:0">Target ${S.prefs.zoneMin}–${S.prefs.zoneMax} s. +/− moves ${fmt(stepFor(m))} ${uLabel(u)}.</small>
     ${(()=>{ const js=S.justSaved; const e=js&&js.mid===m.id&&entries(m.id).find(x=>x.id===js.eid);
       return e ? `<button class="primary alt" data-act="edit-entry" data-mid="${esc(m.id)}" data-eid="${esc(e.id)}">Edit this set</button>` : `<button class="primary" data-act="save-set">Save set</button>`; })()}
     <p class="toast" id="toast" role="status">${esc(S.toast)}</p>
@@ -1206,8 +1211,8 @@ function pageSettings(){
       </div>
       <p class="label" style="margin-top:6px">Default weight step</p>
       <div class="row2">
-        <div class="field"><label class="label" for="g-kg">kg</label><input id="g-kg" data-pref="kgStep" inputmode="numeric" value="${P.kgStep}"></div>
-        <div class="field"><label class="label" for="g-lb">lbs</label><input id="g-lb" data-pref="lbStep" inputmode="numeric" value="${P.lbStep}"></div>
+        <div class="field"><label class="label" for="g-kg">kg</label><input id="g-kg" data-pref="kgStep" inputmode="decimal" value="${P.kgStep}"></div>
+        <div class="field"><label class="label" for="g-lb">lbs</label><input id="g-lb" data-pref="lbStep" inputmode="decimal" value="${P.lbStep}"></div>
       </div>
       <small class="meta" style="margin:0">Each machine can override the step in its own settings.</small>
     </section>
@@ -1244,7 +1249,7 @@ function renderSheet(){
       <div class="field"><span class="label">Muscles it works</span><div class="mchips">${Object.keys(MUSCLES).sort((a,b)=>MUSCLES[a].name.localeCompare(MUSCLES[b].name)).map(k=>`<button class="mchip" data-mt="${k}" aria-pressed="${sh.targets.includes(k)}">${MUSCLES[k].name}</button>`).join('')}</div><small>The first one you pick counts as its main muscle.</small></div>
       <div class="field"><label class="label" for="f-video">How-to video link (optional)</label><input id="f-video" type="url" inputmode="url" autocomplete="off" autocapitalize="off" value="${esc(m.video||'')}" placeholder="Paste the link from the machine's QR code"><small>Scan the QR code on the machine with your iPhone camera, open it, then copy the link and paste it here. YouTube links work too.</small></div>
       <div class="row2">
-        <div class="field"><label class="label" for="f-inc">Weight step (${uLabel(unit())})</label><input id="f-inc" inputmode="numeric" value="${esc(inc||'')}" placeholder="${unit()==='lb'?S.prefs.lbStep:S.prefs.kgStep}"></div>
+        <div class="field" style="grid-column:1/-1"><span class="label">Weight increment (${uLabel(unit())})</span><div class="mchips" role="group" aria-label="Weight increment">${(()=>{ const curInc = sh.inc ?? (Number(inc)||Number(unit()==='lb'?S.prefs.lbStep:S.prefs.kgStep)||1); const opts=(unit()==='lb'?INC_LB:INC_KG).slice(); if(!opts.includes(curInc)) opts.push(curInc), opts.sort((a,b)=>a-b); return opts.map(v=>`<button type="button" class="mchip" data-inc="${v}" aria-pressed="${v===curInc}">${fmt(v)} ${uLabel(unit())}</button>`).join(''); })()}</div><small>How much the weight goes up or down on this machine. + and − and the next-set suggestion use it.</small></div>
         <div class="field"><label class="label" for="f-code">Code (optional)</label><input id="f-code" value="${esc(m.code||'')}" placeholder="e.g. B6"></div>
       </div>
       <p class="toast" id="f-err" style="color:var(--under)"></p>
@@ -1256,7 +1261,7 @@ function renderSheet(){
     if(!e||!m){ S.sheet=null; root.innerHTML=''; return; }
     body = `<h2>Edit set</h2><p class="meta" style="margin:-8px 0 0">${esc(m.name)}</p>
       <div class="row2">
-        <div class="field"><label class="label" for="e-weight">Weight</label><input id="e-weight" inputmode="numeric" value="${esc(inUnit(e))}"></div>
+        <div class="field"><label class="label" for="e-weight">Weight</label><input id="e-weight" inputmode="decimal" value="${esc(inUnit(e))}"></div>
         <div class="field"><label class="label" for="e-unit">Unit</label><select id="e-unit"><option value="kg" ${unit()!=='lb'?'selected':''}>kg</option><option value="lb" ${unit()==='lb'?'selected':''}>lbs</option></select></div>
         <div class="field"><label class="label" for="e-seconds">Seconds</label><input id="e-seconds" inputmode="numeric" value="${esc(e.seconds??'')}"></div>
         <div class="field"><label class="label" for="e-reps">Reps</label><input id="e-reps" inputmode="numeric" value="${esc(e.reps??'')}"></div>
@@ -1274,7 +1279,7 @@ function resheet(){ if(S.sheet&&S.sheet.type==='machine'){ const n=$('#f-name');
 
 /* ---------- saving a set ---------- */
 function saveSet(m){
-  const d=draft(m), w=Math.round(parseFloat(d.weight)), s=d.seconds===''?null:parseInt(d.seconds,10), r=d.reps===''?null:parseInt(d.reps,10);
+  const d=draft(m), w=r2(parseFloat(String(d.weight).replace(',','.'))), s=d.seconds===''?null:parseInt(d.seconds,10), r=d.reps===''?null:parseInt(d.reps,10);
   if(isNaN(w) || w<0){ render(); showToast('Enter the weight you used, then tap Save set.', true); const i=$('#d-weight'); i&&i.focus(); return null; }
   if(s==null && r==null){ showToast('Enter the seconds (or reps) for this set.', true); $('#d-seconds').focus(); return null; }
   const e={id:'e-'+rid(), date:d.date||today(), weight:w, unit:unit(), seconds:isNaN(s)?null:s, reps:isNaN(r)?null:r, ts:Date.now()};
@@ -1292,7 +1297,7 @@ function startTimer(){
   try{ navigator.wakeLock && navigator.wakeLock.request('screen').then(w=>wake=w).catch(()=>{}); }catch(e){}
   const g=GREEN_AT(), mx=MAX_T(), mm=s=>Math.floor(s/60)+':'+String(s%60).padStart(2,'0');
   const d=draft(m), last=entries(m.id)[0], u=unit();
-  const w = d.weight!=='' ? Math.round(parseFloat(d.weight)) : (last ? inUnit(last) : null);
+  const w = d.weight!=='' ? r2(parseFloat(String(d.weight).replace(',','.'))) : (last ? inUnit(last) : null);
   const sets=(m.settings||[]).filter(x=>(x.label||'').trim()||(x.value||'').trim());
   const note=(m.notes||'').trim();
   const info = `<div class="tinfo">
@@ -1330,7 +1335,8 @@ function showToast(msg, bad){ S.toast=msg; const el=$('#toast'); if(el){ el.text
 /* ---------- events ---------- */
 function selectMachine(id){ S.sel=id; try{localStorage.setItem('tul-sel',id)}catch(e){} }
 document.addEventListener('click', ev=>{
-  const b=ev.target.closest('[data-go],[data-sel],[data-start],[data-hv],[data-mt],[data-mi],[data-act],[data-unit],[data-muscle]'); if(!b) return;
+  const b=ev.target.closest('[data-go],[data-sel],[data-start],[data-hv],[data-mt],[data-mi],[data-inc],[data-act],[data-unit],[data-muscle]'); if(!b) return;
+  if(b.dataset.inc){ S.sheet.inc=Number(b.dataset.inc); b.parentNode.querySelectorAll('[data-inc]').forEach(x=>x.setAttribute('aria-pressed', x===b)); return; }
   if(b.dataset.mi){ S.sheet.icon=b.dataset.mi; b.parentNode.querySelectorAll('[data-mi]').forEach(x=>x.setAttribute('aria-pressed', x===b)); return; }
   if(b.dataset.go){ go(b.dataset.go); return; }
   if(b.dataset.start){ selectMachine(b.dataset.start); go('session'); return; }
@@ -1349,10 +1355,10 @@ document.addEventListener('click', ev=>{
     case 'unconfirm': S.sheet.confirm=false; resheet(); break;
     case 'save-machine': {
       const name=$('#f-name').value.trim(); if(!name){ $('#f-err').textContent='Give the machine a name.'; $('#f-name').focus(); return; }
-      const incV=Math.round(parseFloat($('#f-inc').value)); const base = S.sheet.id ? {...mById(S.sheet.id)} : {id:'m-'+rid(), settings:[], notes:'', order:(Math.max(-1,...S.machines.map(x=>x.order??0))+1)};
+      const incV=S.sheet.inc; const base = S.sheet.id ? {...mById(S.sheet.id)} : {id:'m-'+rid(), settings:[], notes:'', order:(Math.max(-1,...S.machines.map(x=>x.order??0))+1)};
       base.name=name; base.code=$('#f-code').value.trim(); if(S.sheet.icon) base.icon=S.sheet.icon; else if(!base.icon) base.icon=guessIcon(name);
       { const v=($('#f-video')&&$('#f-video').value||'').trim(); if(v && !/^https?:\/\//i.test(v)){ $('#f-err').textContent='That video link doesn’t look right. It should start with https://'; return; } if(v) base.video=v; else delete base.video; } base.targets=S.sheet.targets.slice(); base.muscle=base.targets.map(t=>MUSCLES[t].name).slice(0,2).join(', ');
-      const key=unit()==='lb'?'incLb':'incKg'; if(incV>0) base[key]=incV; else delete base[key];
+      const key=unit()==='lb'?'incLb':'incKg'; if(incV>0){ base[key]=incV; if(S.sheet.id) delete S.drafts[base.id]; }
       const isNew=!S.sheet.id; closeSheet(); if(isNew){ selectMachine(base.id); renderStrip.done=false; } delete S.drafts[base.id]; saveMachine(base); render(); break; }
     case 'move': {
       const ms=sorted(), i=ms.findIndex(x=>x.id===S.sheet.id), j=i+Number(b.dataset.dir); if(j<0||j>=ms.length) return;
@@ -1364,7 +1370,7 @@ document.addEventListener('click', ev=>{
       if(S.sel===id) S.sel = next?next.id:null; delDoc('machines',id); delDoc('history',id); render(); break; }
     case 'inc': case 'dec': {
       if(S.justSaved && S.justSaved.mid===m.id){ S.justSaved=null; const bb=document.querySelector('[data-act="edit-entry"].alt'); if(bb) bb.outerHTML='<button class="primary" data-act="save-set">Save set</button>'; }
-      const d=draft(m), st=stepFor(m), w=parseFloat(d.weight)||0; d.weight=String(Math.max(0, Math.round(w)+(act==='inc'?st:-st))); $('#d-weight').value=d.weight; break; }
+      const d=draft(m), st=stepFor(m), w=parseFloat(d.weight)||0; d.weight=String(snap(w+(act==='inc'?st:-st), st)); $('#d-weight').value=d.weight; break; }
     case 'timer': startTimer(); break;
     case 'timer-stop': endTimer(true); break;
     case 'timer-cancel': endTimer(false); break;
@@ -1373,7 +1379,7 @@ document.addEventListener('click', ev=>{
     case 'save-entry': case 'del-entry': {
       const mid=S.sheet.mid; let list=(S.hist[mid]&&S.hist[mid].entries||[]).slice(); const i=list.findIndex(x=>x.id===S.sheet.eid); if(i<0){ closeSheet(); return; }
       if(act==='del-entry') list.splice(i,1);
-      else { const w=Math.round(parseFloat($('#e-weight').value)), s=$('#e-seconds').value.trim(), r=$('#e-reps').value.trim();
+      else { const w=r2(parseFloat($('#e-weight').value.replace(',','.'))), s=$('#e-seconds').value.trim(), r=$('#e-reps').value.trim();
         if(isNaN(w)){ $('#e-weight').focus(); return; }
         list[i]={...list[i], weight:w, unit:$('#e-unit').value, seconds:s===''?null:parseInt(s,10), reps:r===''?null:parseInt(r,10), date:$('#e-date').value||list[i].date}; }
       closeSheet(); delete S.drafts[mid]; saveHist(mid,list); render(); break; }
@@ -1410,7 +1416,7 @@ document.addEventListener('change', ev=>{
   if(t.id==='h-file'){ importHealth(t.files&&t.files[0]); t.value=''; return; }
   if(t.id==='rs-file'){ pickRestore(t.files&&t.files[0]); t.value=''; return; }
   if(t.dataset.prof){ saveProfile({[t.dataset.prof]: t.value.trim()}); return; }
-  if(t.dataset.pref){ const v=Math.round(parseFloat(t.value)); if(!(v>0)){ render(); return; } savePrefs({[t.dataset.pref]: v}); return; }
+  if(t.dataset.pref){ const raw=parseFloat(String(t.value).replace(',','.')); const v=/Step$/.test(t.dataset.pref) ? r2(raw) : Math.round(raw); if(!(v>0)){ render(); return; } savePrefs({[t.dataset.pref]: v}); return; }
   if(!m) return;
   if(t.dataset.set!=null){ const st=(m.settings||[]).map(x=>({...x})); const i=Number(t.dataset.set); if(!st[i]) return; st[i][t.dataset.k]=t.value.trim(); saveMachine({...m,settings:st}); }
   else if(t.id==='m-notes'){ saveMachine({...m,notes:t.value}); }
