@@ -213,6 +213,7 @@ label.go{display:block;font-size:22px}
 .htile b small{font-family:var(--f-body);font-size:13px;font-weight:500;color:var(--muted);margin-left:3px}
 .htile .hs{font-size:12.5px;color:var(--muted)}
 .down{color:var(--accent);font-weight:600}
+.vlinks{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}.vlinks .vlink{margin-top:0}
 .vlink{display:inline-flex;align-items:center;gap:5px;margin-top:6px;padding:5px 11px 5px 8px;border-radius:999px;background:var(--accent-soft);color:var(--accent);font-weight:600;font-size:14px;text-decoration:none}
 .lcstar{width:.8em;height:.8em;color:#E0A100;vertical-align:-.05em;margin-left:.25em;flex:none}
 .lctoggle{display:flex;align-items:center;gap:10px;border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:11px 14px;font-weight:600;text-align:left;width:100%}
@@ -393,7 +394,7 @@ function videoId(u){
   try{ const x=new URL(String(u||'').trim()); const h=x.hostname.replace(/^www\.|^m\./,'');
     if(x.searchParams.get('url-video')) return x.searchParams.get('url-video');
     if(h==='youtu.be') return x.pathname.slice(1).split('/')[0]||null;
-    if(h.endsWith('youtube.com')||h.endsWith('youtube-nocookie.com')){ if(x.searchParams.get('v')) return x.searchParams.get('v'); const m=x.pathname.match(/\/(?:shorts|embed|live)\/([\w-]{6,})/); return m?m[1]:null; }
+    if(h.endsWith('youtube.com')||h.endsWith('youtube-nocookie.com')){ if(x.searchParams.get('v')) return x.searchParams.get('v'); const mm=x.pathname.match(/\/(?:shorts|embed|live)\/([\w-]{6,})/); return mm?mm[1]:null; }
   }catch(e){} return null;
 }
 function videoHref(m){ if(!m||!m.video) return ''; const id=videoId(m.video); return id ? 'https://www.youtube.com/watch?v='+encodeURIComponent(id) : m.video; }
@@ -1076,7 +1077,8 @@ function pageSession(){
   const todays = allSets().filter(e=>e.date===today()).sort((a,b)=>byName(mById(a.mid),mById(b.mid))||(a.ts||0)-(b.ts||0));
   return `
   <section class="head">
-    <div style="display:flex;gap:12px;align-items:center;min-width:0">${micon(m,'mtile lg')}<div style="min-width:0"><h1>${esc(m.name)}${lcStar(m)}</h1><div class="meta">${tg.length?tg.map(t=>MUSCLES[t].name).join(' · '):esc(m.muscle||'')}</div>${m.video?`<a class="vlink" href="${esc(videoHref(m))}" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13l11-6.5z"/></svg>How-to video</a>`:''}</div></div>
+    <div style="display:flex;gap:12px;align-items:center;min-width:0">${micon(m,'mtile lg')}<div style="min-width:0"><h1>${esc(m.name)}${lcStar(m)}</h1><div class="meta">${tg.length?tg.map(t=>MUSCLES[t].name).join(' · '):esc(m.muscle||'')}</div>${m.video?`<div class="vlinks">${(()=>{ const id=videoId(m.video), yt=/youtu\.?be/.test(m.video); const play='<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13l11-6.5z"/></svg>', doc='<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M7 3h7l4 4v14H7zM14 3v4h4M10 12h5M10 16h5"/></svg>';
+      return (yt?'':`<a class="vlink" href="${esc(m.video)}" target="_blank" rel="noopener">${doc}Instructions</a>`) + (id?`<a class="vlink" href="https://www.youtube.com/watch?v=${encodeURIComponent(id)}" target="_blank" rel="noopener">${play}Video</a>`:''); })()}</div>`:''}</div></div>
     <button class="ghost" data-act="edit-machine">Edit</button>
   </section>
   <section class="card" aria-labelledby="lg">
@@ -1256,10 +1258,9 @@ function renderSheet(){
         ${S.photoMsg?`<small style="color:var(--under)">${esc(S.photoMsg)}</small>`:''}</div>`; })()}
       <div class="field"><span class="label">Icon</span><div class="ipick" role="group" aria-label="Machine icon">${(()=>{ const curI = sh.icon || (sh.id?iconKey(m):guessIcon('')); return Object.keys(MICONS).map(k=>`<button type="button" data-mi="${k}" aria-pressed="${k===curI}">${iconSvg(k)}<span>${MICONS[k].name}</span></button>`).join(''); })()}</div><small>${sh.id?'':'Picked for you from the name if you leave it.'}</small></div>
       <div class="field"><span class="label">Muscles it works</span><div class="mchips">${Object.keys(MUSCLES).sort((a,b)=>MUSCLES[a].name.localeCompare(MUSCLES[b].name)).map(k=>`<button class="mchip" data-mt="${k}" aria-pressed="${sh.targets.includes(k)}">${MUSCLES[k].name}</button>`).join('')}</div><small>The first one you pick counts as its main muscle.</small></div>
-      <div class="field"><label class="label" for="f-video">How-to video link (optional)</label><input id="f-video" type="url" inputmode="url" autocomplete="off" autocapitalize="off" value="${esc(sh.form&&sh.form.video!=null?sh.form.video:(m.video||''))}" placeholder="Paste the link from the machine's QR code"><small>Scan the QR code on the machine with your iPhone camera, open it, then copy the link and paste it here. YouTube links work too.</small></div>
+      <div class="field"><label class="label" for="f-video">Instructions link (optional)</label><input id="f-video" type="url" inputmode="url" autocomplete="off" autocapitalize="off" value="${esc(sh.form&&sh.form.video!=null?sh.form.video:(m.video||''))}" placeholder="https://trainer.lifefitness.com/…"><small>Scan the QR code on the machine with your iPhone camera, open it, then copy the link and paste it here. Any web page or YouTube link works. Life Fitness links also get a direct Video button.</small></div>
       <div class="row2">
         <div class="field" style="grid-column:1/-1"><label class="label" for="f-inc">Weight increment (${uLabel(unit())})</label>${(()=>{ const curInc = Number(inc)||Number(unit()==='lb'?S.prefs.lbStep:S.prefs.kgStep)||1; return `<input id="f-inc" inputmode="decimal" autocomplete="off" value="${esc(sh.form&&sh.form.inc!=null?sh.form.inc:fmt(curInc))}" style="max-width:140px">`; })()}<small>How much the weight goes up or down on this machine. + and − and the next-set suggestion use it.</small></div>
-        <div class="field"><label class="label" for="f-code">Code (optional)</label><input id="f-code" value="${esc(sh.form&&sh.form.code!=null?sh.form.code:(m.code||''))}" placeholder="e.g. B6"></div>
       </div>
       <p class="toast" id="f-err" style="color:var(--under)"></p>
       <div class="actions"><button class="ghost" data-act="close">Cancel</button><button class="primary" data-act="save-machine">${sh.id?'Save changes':'Add machine'}</button></div>
@@ -1284,7 +1285,7 @@ function renderSheet(){
 }
 function openSheet(s){ S.photoMsg=''; S.sheet={...s, key:rid()}; renderSheet(); }
 function closeSheet(){ S.sheet=null; renderSheet(); }
-function resheet(){ if(S.sheet&&S.sheet.type==='machine'){ const v=id=>{ const e=$('#'+id); return e?e.value:undefined; }; S.sheet.form={name:v('f-name')||'', video:v('f-video'), inc:v('f-inc'), code:v('f-code')}; } S.sheet.key=rid(); renderSheet(); }
+function resheet(){ if(S.sheet&&S.sheet.type==='machine'){ const v=id=>{ const e=$('#'+id); return e?e.value:undefined; }; S.sheet.form={name:v('f-name')||'', video:v('f-video'), inc:v('f-inc')}; } S.sheet.key=rid(); renderSheet(); }
 
 /* One-time update (Oct 2026): every machine's stack goes 7.5, 15, 22.5 ... so set all increments to 7.5 kg. */
 function migrateInc75(){
@@ -1392,7 +1393,7 @@ document.addEventListener('click', ev=>{
       const incRaw=($('#f-inc')&&$('#f-inc').value||'').trim().replace(',','.'), incV=incRaw===''?null:r2(parseFloat(incRaw));
       if(incRaw!=='' && !(incV>0 && incV<=200)){ $('#f-err').textContent='Enter an increment above 0, like 1, 2.5 or 5.'; $('#f-inc').focus(); return; }
       const base = S.sheet.id ? {...mById(S.sheet.id)} : {id:'m-'+rid(), settings:[], notes:'', order:(Math.max(-1,...S.machines.map(x=>x.order??0))+1)};
-      base.name=name; base.code=$('#f-code').value.trim(); if(S.sheet.icon) base.icon=S.sheet.icon; else if(!base.icon) base.icon=guessIcon(name);
+      base.name=name; delete base.code; if(S.sheet.icon) base.icon=S.sheet.icon; else if(!base.icon) base.icon=guessIcon(name);
       if(S.sheet.lc) base.laneCove=true; else delete base.laneCove;
       { const v=($('#f-video')&&$('#f-video').value||'').trim(); if(v && !/^https?:\/\//i.test(v)){ $('#f-err').textContent='That video link doesn’t look right. It should start with https://'; return; } if(v) base.video=v; else delete base.video; } base.targets=S.sheet.targets.slice(); base.muscle=base.targets.map(t=>MUSCLES[t].name).slice(0,2).join(', ');
       const key=unit()==='lb'?'incLb':'incKg'; if(incV>0){ base[key]=incV; if(S.sheet.id) delete S.drafts[base.id]; }
