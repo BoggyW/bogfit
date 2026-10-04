@@ -831,7 +831,7 @@ async function openSeed(pw){
   return JSON.parse(new TextDecoder().decode(plain));
 }
 let dbReadyFn; const dbReady = new Promise(r=>dbReadyFn=r);
-function unlockNow(){ S.locked=false; S.lockMsg=''; const m=$('#main'); delete m.dataset.lock; pickSel(); render(); window.scrollTo({top:0}); }
+function unlockNow(){ S.locked=false; S.lockMsg=''; S.faceAuto=false; const m=$('#main'); delete m.dataset.lock; pickSel(); render(); window.scrollTo({top:0}); }
 async function tryUnlock(pw){
   if(S.lockBusy) return;
   if(!pw){ S.lockMsg='Enter your password.'; render(); return; }
@@ -852,7 +852,8 @@ async function tryUnlock(pw){
 function lockPage(){
   const setup=!getLock();
   return `<div class="cover lock">
-    <section class="hero lockhero">${LOGO('logo')}<h1>BogFit</h1><p class="sub">${setup?'Enter your BogFit password to load your history.':'Enter your password to open BogFit.'}</p></section>
+    <section class="hero lockhero">${LOGO('logo')}<h1>BogFit</h1><p class="sub">${setup?'Enter your BogFit password to load your history.':(getFace()?'Use Face ID or your password to open BogFit.':'Enter your password to open BogFit.')}</p></section>
+    ${!setup && getFace() ? `<button class="go" data-act="face-unlock" ${S.faceBusy?'disabled':''} style="display:flex;align-items:center;justify-content:center;gap:12px;font-size:22px;white-space:nowrap"><svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2M9 9v1.5M15 9v1.5M12 9v4h-1M9.5 16c1.5 1 3.5 1 5 0"/></svg>${S.faceBusy?'Checking…':'Unlock with Face ID'}</button><p class="meta" style="margin:0;text-align:center">or use your password</p>` : ''}
     <form class="card" id="lock-form" autocomplete="on">
       <input type="text" name="username" value="BogFit" autocomplete="username" hidden>
       <div class="field"><label class="label" for="lock-pw">Password</label><input id="lock-pw" type="password" autocomplete="current-password" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="go"></div>
@@ -869,11 +870,45 @@ async function changePw(){
   else { await setLock(nw); S.pwMsg='Password changed. Use the new one next time you open BogFit.'; S.pwOk=true; }
   render();
 }
+/* Face ID: a passkey on this phone (WebAuthn platform authenticator) unlocks the app; the password stays as the fallback. */
+const FACE_KEY='bogfit-faceid';
+const getFace = () => { try{ return localStorage.getItem(FACE_KEY); }catch(e){ return null; } };
+(async()=>{ try{ S.faceOK = !!(window.PublicKeyCredential && await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()); }catch(e){ S.faceOK=false; } if(S.faceOK) render(); })();
+async function enableFace(){
+  S.pwMsg=''; S.pwOk=false;
+  try{
+    const cred=await navigator.credentials.create({publicKey:{
+      rp:{name:'BogFit', id:location.hostname}, user:{id:crypto.getRandomValues(new Uint8Array(16)), name:'BogFit', displayName:'BogFit'},
+      challenge:crypto.getRandomValues(new Uint8Array(32)), pubKeyCredParams:[{type:'public-key',alg:-7},{type:'public-key',alg:-257}],
+      authenticatorSelection:{authenticatorAttachment:'platform', userVerification:'required', residentKey:'preferred'}, timeout:60000, attestation:'none'}});
+    localStorage.setItem(FACE_KEY, b64(new Uint8Array(cred.rawId)));
+    try{ localStorage.setItem(FACE_KEY+'-asked','1'); }catch(e){}
+    S.pwMsg='Face ID is on. BogFit will use it to unlock.'; S.pwOk=true;
+  }catch(e){ console.error(e); S.pwMsg = e&&e.name==='NotAllowedError' ? 'Face ID wasn’t turned on.' : 'Face ID isn’t available here.'; }
+  render();
+}
+function disableFace(){ try{ localStorage.removeItem(FACE_KEY); }catch(e){} S.pwMsg='Face ID is off. BogFit will ask for your password.'; S.pwOk=true; render(); }
+async function faceUnlock(auto){
+  const id=getFace(); if(!id || S.faceBusy) return;
+  S.faceBusy=true; S.lockMsg=''; render();
+  try{
+    await navigator.credentials.get({publicKey:{challenge:crypto.getRandomValues(new Uint8Array(32)), rpId:location.hostname,
+      allowCredentials:[{type:'public-key', id:unb64(id)}], userVerification:'required', timeout:60000}});
+    S.faceBusy=false; unlockNow(); return;
+  }catch(e){ console.error(e); if(!auto) S.lockMsg='Face ID didn’t work. Try again or use your password.'; }
+  S.faceBusy=false; render();
+}
+function faceNudge(){
+  if(IS_CLAUDE || !S.faceOK || getFace() || !getLock()) return '';
+  try{ if(localStorage.getItem(FACE_KEY+'-asked')) return ''; }catch(e){ return ''; }
+  return `<div class="banner" style="display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--accent-soft);color:var(--accent)"><span>Unlock with Face ID instead of your password?</span><span style="display:flex;gap:6px;flex:none"><button class="ghost" style="border-color:currentColor;color:inherit" data-act="face-on">Turn on</button><button class="ghost" style="border:0;color:inherit" data-act="face-skip">Not now</button></span></div>`;
+}
 function passwordCard(){
   if(IS_CLAUDE) return '';
   return `<section class="card" aria-labelledby="pw">
     <p class="label" id="pw">Password</p>
-    <p class="meta" style="margin:0">BogFit asks for your password when you open it, and after 10 minutes away. Your history file on the website still opens with your original password.</p>
+    <p class="meta" style="margin:0">BogFit asks for your password${getFace()?' (or Face ID)':''} when you open it, and after 10 minutes away. Your history file on the website still opens with your original password.</p>
+    ${S.faceOK?`<div class="mrow" style="border-top:0;padding:0"><div><div class="n">Face ID</div><p class="meta">${getFace()?'On: unlock with your face, password as backup':'Off'}</p></div>${getFace()?`<button type="button" class="ghost" data-act="face-off">Turn off</button>`:`<button type="button" class="ghost" data-act="face-on">Turn on</button>`}</div>`:''}
     <form id="pw-form" style="display:flex;flex-direction:column;gap:10px">
       <input type="text" name="username" value="BogFit" autocomplete="username" hidden>
       <div class="field"><label class="label" for="pw-cur">Current password</label><input id="pw-cur" type="password" autocomplete="current-password" autocapitalize="off"></div>
@@ -889,8 +924,9 @@ function passwordCard(){
 function render(){
   if(S.locked){
     $('#top').hidden=true; $('#tabs').hidden=true; $('#sheetRoot').innerHTML=''; $('#timerRoot').innerHTML='';
-    const m=$('#main'), key=JSON.stringify([!!getLock(), !!S.lockBusy, S.lockMsg||'']);
-    if(m.dataset.lock!==key){ m.innerHTML=lockPage(); m.dataset.lock=key; const i=$('#lock-pw'); if(i&&!S.lockBusy) setTimeout(()=>{ try{ i.focus(); }catch(e){} }, 50); }
+    const m=$('#main'), key=JSON.stringify([!!getLock(), !!S.lockBusy, S.lockMsg||'', !!getFace(), !!S.faceBusy]);
+    if(m.dataset.lock!==key){ m.innerHTML=lockPage(); m.dataset.lock=key; const i=$('#lock-pw'); if(i&&!S.lockBusy&&!getFace()) setTimeout(()=>{ try{ i.focus(); }catch(e){} }, 50); }
+    if(getFace() && getLock() && !S.faceAuto){ S.faceAuto=true; setTimeout(()=>faceUnlock(true), 300); }
     return;
   }
   const a=document.activeElement, aid=a&&a.id, sel=(a&&'selectionStart' in a)?[a.selectionStart,a.selectionEnd]:null;
@@ -932,6 +968,7 @@ function pageHome(){
   const lastTg = last ? [...new Set(last.sets.flatMap(e=>normT(mById(e.mid))))] : [];
   const hi = S.profile.name ? `G'day, ${esc(S.profile.name)}` : 'Machine training log';
   return `<div class="cover">
+    ${faceNudge()}
     ${backupNudge()}
     <section class="hero">
       ${LOGO('ghostlogo')}
@@ -1276,7 +1313,11 @@ document.addEventListener('click', ev=>{
     case 'backup': if(S.page!=='settings' && !S.bkBusy){ S.bkMsg=''; } doBackup(); break;
     case 'restore-yes': doRestore(); break;
     case 'restore-no': S.restore=null; render(); break;
-    case 'lock-now': S.locked=true; render(); break;
+    case 'lock-now': S.locked=true; S.faceAuto=true; render(); break;
+    case 'face-unlock': faceUnlock(false); break;
+    case 'face-on': enableFace(); break;
+    case 'face-off': disableFace(); break;
+    case 'face-skip': try{ localStorage.setItem(FACE_KEY+'-asked','1'); }catch(e){} render(); break;
     case 'photo-ask': S.photoConfirm=m.id; render(); break;
     case 'photo-del': { const id=m.photo; S.photoConfirm=null; const y={...m}; delete y.photo; saveMachine(y); if(ASSETS&&id) ASSETS.delete(id).catch(()=>{}); render(); break; }
     case 'add-setting': {
@@ -1323,7 +1364,7 @@ if(!IS_CLAUDE && 'serviceWorker' in navigator && (location.protocol==='https:' |
   let hiddenAt=0;
   document.addEventListener('visibilitychange', ()=>{
     if(document.hidden){ hiddenAt=Date.now(); return; }
-    if(hiddenAt && Date.now()-hiddenAt > 10*60*1000 && !S.timer && !S.locked){ S.locked=true; render(); }
+    if(hiddenAt && Date.now()-hiddenAt > 10*60*1000 && !S.timer && !S.locked){ S.locked=true; S.faceAuto=false; render(); }
     if(hiddenAt && Date.now()-hiddenAt > 60*60*1000 && !S.timer && !S.sheet && !S.bkBusy && !S.healthBusy && navigator.onLine) location.reload();
   });
 }
