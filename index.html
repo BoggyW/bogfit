@@ -224,6 +224,11 @@ label.go{display:block;font-size:22px}
 .htile .hs{font-size:12.5px;color:var(--muted)}
 .down{color:var(--accent);font-weight:600}
 .vlink{display:inline-flex;align-items:center;gap:5px;margin-top:6px;padding:5px 11px 5px 8px;border-radius:999px;background:var(--accent-soft);color:var(--accent);font-weight:600;font-size:14px;text-decoration:none}
+.lcstar{width:.8em;height:.8em;color:#E0A100;vertical-align:-.05em;margin-left:.25em;flex:none}
+.lctoggle{display:flex;align-items:center;gap:10px;border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:11px 14px;font-weight:600;text-align:left;width:100%}
+.lctoggle .lcstar{width:22px;height:22px;margin:0;color:var(--line)}
+.lctoggle[aria-pressed="true"]{border-color:#E0A100;background:rgb(224 161 0/.12)}
+.lctoggle[aria-pressed="true"] .lcstar{color:#E0A100}
 .mtile{width:44px;height:44px;border-radius:10px;background:var(--accent-soft);color:var(--accent);display:inline-flex;align-items:center;justify-content:center;flex:none}
 .mtile .mi{width:28px;height:28px}
 .mtile.lg{width:52px;height:52px;border-radius:12px}.mtile.lg .mi{width:34px;height:34px}
@@ -422,15 +427,24 @@ const MICONS = {
   adduct:{name:'Hip adduction', d:`${MIH(12,4)}<path d="M12 6.5v6M8 12.5h8M11 12.5l-4 7M13 12.5l4 7M1 14h4.5M3.5 12l2 2-2 2M23 14h-4.5M20.5 12l-2 2 2 2"/>`},
   crunch:{name:'Ab crunch', d:`${MIH(12,7)}<path d="M8 15q0-5 3-6.5M4 15h8M12 15h4v5M14.5 6.5l1.5 4"/>`},
   backext:{name:'Back extension', d:`${MIH(5,5)}<path d="M11 15L6.5 7.5M4 15h11M15 15v5M3 9.5l3-1.5"/>`},
+  curl:{name:'Biceps curl', d:`${MIH(9,4)}<path d="M9 6.5V15M9 15l-1 6M9 15l1 6M9 8.5l1 5M10 13.5l5-5M13 6.5l4 4M18 6a5 5 0 0 1 1 5"/>`},
+  triceps:{name:'Triceps', d:`${MIH(8,4)}<path d="M8 6.5V15M8 15l-1 6M8 15l1 6M8 8.5l2 4M10 12.5l5 2.5M17 2v11M15 15l2-2M20.5 9v5M19 12.5l1.5 1.5 1.5-1.5"/>`},
+  reardelt:{name:'Rear delt', d:`${MIH(12,6)}<path d="M12 8.5V17M12 10.5H5M12 10.5h7M5 8v5M19 8v5M9 20h6M5 4H1.5M3 2.5L1.5 4 3 5.5M19 4h3.5M21 2.5L22.5 4 21 5.5"/>`},
+  rotation:{name:'Torso rotation', d:`${MIH(12,4)}<path d="M12 6.5V15M8 15h8M8 9.5h8M4 12.5a8 3.5 0 0 0 16 0M18.6 14.6l1.4-2.1 1.4 2"/>`},
+  glute:{name:'Glute', d:`${MIH(4.5,7)}<path d="M6.5 8.5L14 9M8 9v6M5 15h6M14 9l-1 11M14 9l5-2.5 2 4.5"/>`},
+  smith:{name:'Smith / multi-press', d:`${MIH(12,8)}<path d="M4 2v20M20 2v20M2 11h20M12 10.5v6M12 16.5l-3 5M12 16.5l3 5M12 12l-3-1M12 12l3-1"/>`},
+  cable:{name:'Cable pulley', d:`<path d="M4 2h4v20H4zM2 22h8M5 15h2M5 17.5h2M5 20h2M9.3 6l8.7 7M16.5 11.5l3 3"/><circle cx="8" cy="5" r="1.4"/>`},
   stack:{name:'Weight stack', d:`<path d="M6 3v18M18 3v18M8 7h8v3H8zM8 12h8v3H8zM8 17h8v3H8zM12 3v4"/>`},
   dumbbell:{name:'Dumbbell', d:`<path d="M3 10v4M6 7v10M18 7v10M21 10v4M6 12h12"/>`},
 };
-const ICON_GUESS = [[/pull-?up|chin|dip/,'pullup'],[/pull-?down|\blat\b/,'lat'],[/row/,'row'],[/pec|fly/,'pec'],[/chest|bench/,'chest'],[/shoulder|overhead|military/,'shoulder'],
-  [/leg press|squat|hack/,'legpress'],[/leg ext|quad/,'legext'],[/(leg|hamstring).*curl|curl.*(leg|hamstring)/,'legcurl'],[/calf/,'calf'],[/abduct/,'abduct'],[/adduct/,'adduct'],
+const ICON_GUESS = [[/tricep|seated dip|push-?down/,'triceps'],[/smith|multi-?press/,'smith'],[/pulley|cable/,'cable'],[/rear del/,'reardelt'],[/rotat|twist/,'rotation'],[/glute/,'glute'],[/pull-?up|chin|dip/,'pullup'],[/pull-?down|\blat\b/,'lat'],[/row/,'row'],[/pec|fly/,'pec'],[/chest|bench/,'chest'],[/shoulder|overhead|military/,'shoulder'],
+  [/leg press|squat|hack/,'legpress'],[/leg ext|quad/,'legext'],[/(leg|hamstring).*curl|curl.*(leg|hamstring)/,'legcurl'],[/bicep|curl/,'curl'],[/calf/,'calf'],[/abduct/,'abduct'],[/adduct/,'adduct'],
   [/back ext|lower back|hyper/,'backext'],[/crunch|\babs?\b|abdom|core/,'crunch'],[/dumbbell|\bdb\b/,'dumbbell']];
 const guessIcon = name => { const n=String(name||'').toLowerCase(); const g=ICON_GUESS.find(([re])=>re.test(n)); return g?g[1]:'stack'; };
 const iconKey = m => (m && MICONS[m.icon]) ? m.icon : guessIcon(m&&m.name);
 const iconSvg = (k, cls) => `<svg class="${cls||'mi'}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${(MICONS[k]||MICONS.stack).d}</svg>`;
+const LC_STAR = `<svg class="lcstar" viewBox="0 0 24 24" aria-label="Lane Cove machine" role="img"><path fill="currentColor" d="M12 2.6l2.9 6 6.5.8-4.8 4.5 1.2 6.5L12 17.3l-5.8 3.1 1.2-6.5L2.6 9.4l6.5-.8z"/></svg>`;
+const lcStar = m => m && m.laneCove ? LC_STAR : '';
 const micon = (m, cls) => `<span class="${cls||'mtile'}">${iconSvg(iconKey(m))}</span>`;
 
 /* ---------- muscle map ---------- */
@@ -861,7 +875,7 @@ async function doRestore(){
     S.drafts={}; S.sel=null; pickSel();
     S.bkMsg=`Restored ${data.machines.length} machines and ${setCount(data.history)} sets from ${new Date(data.exportedAt).toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'numeric'})}.`;
   }catch(e){ console.error(e); S.bkMsg="Couldn't finish the restore. Try again with the same file."; }
-  S.bkBusy=false; S.inc75Ran=false; migrateInc75(); render();
+  S.bkBusy=false; S.inc75Ran=false; S.addOctRan=false; migrateInc75(); migrateAddOct26(); render();
 }
 function backupCard(){
   const lb=lastBackup(), d=S.restore;
@@ -1074,7 +1088,7 @@ function pageSession(){
   const todays = allSets().filter(e=>e.date===today()).sort((a,b)=>byName(mById(a.mid),mById(b.mid))||(a.ts||0)-(b.ts||0));
   return `
   <section class="head">
-    <div style="display:flex;gap:12px;align-items:center;min-width:0">${micon(m,'mtile lg')}<div style="min-width:0"><h1>${esc(m.name)}</h1><div class="meta">${tg.length?tg.map(t=>MUSCLES[t].name).join(' · '):esc(m.muscle||'')}</div>${m.video?`<a class="vlink" href="${esc(videoHref(m))}" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13l11-6.5z"/></svg>How-to video</a>`:''}</div></div>
+    <div style="display:flex;gap:12px;align-items:center;min-width:0">${micon(m,'mtile lg')}<div style="min-width:0"><h1>${esc(m.name)}${lcStar(m)}</h1><div class="meta">${tg.length?tg.map(t=>MUSCLES[t].name).join(' · '):esc(m.muscle||'')}</div>${m.video?`<a class="vlink" href="${esc(videoHref(m))}" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13l11-6.5z"/></svg>How-to video</a>`:''}</div></div>
     <button class="ghost" data-act="edit-machine">Edit</button>
   </section>
   <section class="card" aria-labelledby="lg">
@@ -1220,7 +1234,7 @@ function pageSettings(){
     </section>
     <section class="card" style="gap:0">
       <p class="label" style="margin-bottom:8px">Machines · ${S.machines.length}</p>
-      ${sorted().map(m=>{ const tg=normT(m); return `<div class="mrow"><div class="mrow-l">${m.photo?`<img class="thumb" src="${esc(photoSrc(m.photo))}" alt="">`:micon(m)}<div><div class="n">${esc(m.name)}</div><p class="meta">${tg.length?tg.map(t=>MUSCLES[t].name).join(', '):'No muscles set'}</p></div></div><button class="ghost" data-act="edit-machine" data-mid="${esc(m.id)}">Edit</button></div>`; }).join('')}
+      ${sorted().map(m=>{ const tg=normT(m); return `<div class="mrow"><div class="mrow-l">${m.photo?`<img class="thumb" src="${esc(photoSrc(m.photo))}" alt="">`:micon(m)}<div><div class="n">${esc(m.name)}${lcStar(m)}</div><p class="meta">${tg.length?tg.map(t=>MUSCLES[t].name).join(', '):'No muscles set'}</p></div></div><button class="ghost" data-act="edit-machine" data-mid="${esc(m.id)}">Edit</button></div>`; }).join('')}
       <button class="primary" style="margin-top:12px" data-act="add-machine">Add a machine</button>
     </section>
     ${passwordCard()}
@@ -1247,6 +1261,7 @@ function renderSheet(){
     const inc = sh.id ? (unit()==='lb'?m.incLb:m.incKg) : '';
     body = `<h2>${sh.id?'Edit machine':'Add a machine'}</h2>
       <div class="field"><label class="label" for="f-name">Name</label><input id="f-name" value="${esc(sh.form?sh.form.name:(m.name||''))}" placeholder="e.g. Leg Press" autocomplete="off"></div>
+      ${(()=>{ if(sh.lc===undefined) sh.lc=!!m.laneCove; return `<button type="button" class="lctoggle" data-act="toggle-lc" aria-pressed="${sh.lc}">${LC_STAR}<span>Lane Cove machine<br><small class="meta" style="margin:0;font-weight:500">${sh.lc?'Starred: shows a gold star next to its name':'Tap to star it as a Lane Cove machine'}</small></span></button>`; })()}
       ${(()=>{ const src = sh.id ? (m.photo?photoSrc(m.photo):'') : (sh.pendingUrl||''); return `<div class="field"><span class="label">Photo</span>
         ${src?`<img class="mphoto" src="${esc(src)}" alt="Photo of ${esc(m.name||'this machine')}" style="max-height:220px">`:''}
         ${ASSETS?`<div class="actions-row"><label class="ghost photo-btn" style="${S.photoBusy?'opacity:.5;pointer-events:none':''}">${S.photoBusy?'Saving…':(src?'Replace photo':'Add a photo')}<input id="f-photo" type="file" accept="image/*" hidden></label>${src?`<button type="button" class="ghost" data-act="sheet-photo-del">Remove photo</button>`:''}</div>`:`<small>Photos can't be saved in this browser.</small>`}
@@ -1288,6 +1303,24 @@ function migrateInc75(){
   if(S.inc75Ran || S.prefs.inc75 || S.bkBusy || S.mode!=='db' || !S.machines.length) return; S.inc75Ran=true;
   S.machines.forEach(m=>{ if(Number(m.incKg)!==7.5) saveMachine({...m, incKg:7.5}); });
   S.drafts={}; savePrefs({kgStep:7.5, inc75:true});
+}
+
+/* One-time update (Oct 2026): add the Life Fitness machines Rob chose to fill gaps (arms, rear delts, obliques, glutes, pressing, cables). */
+const ADD_OCT26 = [
+  ['biceps-curl','Biceps Curl',['biceps','forearms'],'curl'],
+  ['triceps-extension','Triceps Extension',['triceps'],'triceps'],
+  ['rear-deltoid','Rear Deltoid',['delts','upperback','traps'],'reardelt'],
+  ['torso-rotation','Torso Rotation',['obliques','abs'],'rotation'],
+  ['glute','Glute',['glutes','hamstrings'],'glute'],
+  ['multi-press','Multi-Press',['chest','delts','triceps'],'smith'],
+  ['dual-adjustable-pulley','Dual Adjustable Pulley',['delts','upperback','biceps'],'cable']
+];
+function migrateAddOct26(){
+  if(S.addOctRan || S.prefs.addOct26 || S.bkBusy || S.mode!=='db' || !S.machines.length) return; S.addOctRan=true;
+  const have=new Set(S.machines.map(m=>String(m.name||'').toLowerCase())); let order=Math.max(-1,...S.machines.map(x=>x.order??0));
+  ADD_OCT26.forEach(([id,name,targets,icon])=>{ if(have.has(name.toLowerCase()) || mById(id)) return;
+    saveMachine({id, name, code:'', targets, muscle:targets.map(t=>MUSCLES[t].name).slice(0,2).join(', '), icon, incKg:7.5, settings:[], notes:'', order:++order}); });
+  savePrefs({addOct26:true});
 }
 
 /* ---------- saving a set ---------- */
@@ -1372,6 +1405,7 @@ document.addEventListener('click', ev=>{
       if(incRaw!=='' && !(incV>0 && incV<=200)){ $('#f-err').textContent='Enter an increment above 0, like 1, 2.5 or 5.'; $('#f-inc').focus(); return; }
       const base = S.sheet.id ? {...mById(S.sheet.id)} : {id:'m-'+rid(), settings:[], notes:'', order:(Math.max(-1,...S.machines.map(x=>x.order??0))+1)};
       base.name=name; base.code=$('#f-code').value.trim(); if(S.sheet.icon) base.icon=S.sheet.icon; else if(!base.icon) base.icon=guessIcon(name);
+      if(S.sheet.lc) base.laneCove=true; else delete base.laneCove;
       { const v=($('#f-video')&&$('#f-video').value||'').trim(); if(v && !/^https?:\/\//i.test(v)){ $('#f-err').textContent='That video link doesn’t look right. It should start with https://'; return; } if(v) base.video=v; else delete base.video; } base.targets=S.sheet.targets.slice(); base.muscle=base.targets.map(t=>MUSCLES[t].name).slice(0,2).join(', ');
       const key=unit()==='lb'?'incLb':'incKg'; if(incV>0){ base[key]=incV; if(S.sheet.id) delete S.drafts[base.id]; }
       const isNew=!S.sheet.id, pend=S.sheet.pendingBlob; closeSheet(); if(isNew){ selectMachine(base.id); renderStrip.done=false; } delete S.drafts[base.id]; saveMachine(base); render();
@@ -1409,6 +1443,7 @@ document.addEventListener('click', ev=>{
     case 'face-off': disableFace(); break;
     case 'face-skip': try{ localStorage.setItem(FACE_KEY+'-asked','1'); }catch(e){} render(); break;
     case 'photo-ask': S.photoConfirm=m.id; render(); break;
+    case 'toggle-lc': { S.sheet.lc=!S.sheet.lc; b.setAttribute('aria-pressed', S.sheet.lc); const sm=b.querySelector('small'); if(sm) sm.textContent=S.sheet.lc?'Starred: shows a gold star next to its name':'Tap to star it as a Lane Cove machine'; break; }
     case 'sheet-photo-del': { const sh=S.sheet;
       if(sh.id){ const mm=mById(sh.id); if(mm&&mm.photo){ const id=mm.photo, y={...mm}; delete y.photo; saveMachine(y); if(ASSETS) ASSETS.delete(id).catch(()=>{}); } }
       else { if(sh.pendingUrl) URL.revokeObjectURL(sh.pendingUrl); sh.pendingBlob=null; sh.pendingUrl=''; }
@@ -1471,7 +1506,7 @@ const fallback = setTimeout(()=>{ if(S.mode==='loading') goLocal(); }, 12000);
 boot.then(db=>{
   if(!db){ clearTimeout(fallback); goLocal(); return; }
   S.db=db; let got={m:false,h:false};
-  const ready=()=>{ if(got.m&&got.h&&S.mode==='loading'){ clearTimeout(fallback); S.mode='db'; dbReadyFn(); } if(S.mode!=='loading'){ pickSel(); migrateInc75(); render(); } };
+  const ready=()=>{ if(got.m&&got.h&&S.mode==='loading'){ clearTimeout(fallback); S.mode='db'; dbReadyFn(); } if(S.mode!=='loading'){ pickSel(); migrateInc75(); migrateAddOct26(); render(); } };
   const onErr=e=>{ console.error(e); if(S.mode==='loading'){ clearTimeout(fallback); S.db=null; goLocal(); } };
   db.collection('machines').onSnapshot(snap=>{ S.machines=snap.docs.map(d=>({id:d.id,...d.data()})); got.m=true; ready(); }, onErr);
   db.collection('history').onSnapshot(snap=>{ const h={}; snap.docs.forEach(d=>h[d.id]={...d.data()}); S.hist=h; got.h=true; ready(); }, onErr);
