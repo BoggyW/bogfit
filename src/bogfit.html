@@ -209,6 +209,16 @@ label.go{display:block;font-size:22px}
 .htile b small{font-family:var(--f-body);font-size:13px;font-weight:500;color:var(--muted);margin-left:3px}
 .htile .hs{font-size:12.5px;color:var(--muted)}
 .down{color:var(--accent);font-weight:600}
+.mtile{width:44px;height:44px;border-radius:10px;background:var(--accent-soft);color:var(--accent);display:inline-flex;align-items:center;justify-content:center;flex:none}
+.mtile .mi{width:28px;height:28px}
+.mtile.lg{width:52px;height:52px;border-radius:12px}.mtile.lg .mi{width:34px;height:34px}
+.chip .mi{width:18px;height:18px;flex:none}
+.chip[aria-current="true"] .mi{color:var(--bg)}
+.ipick{display:grid;grid-template-columns:repeat(auto-fill,minmax(64px,1fr));gap:8px}
+.ipick button{border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:8px 4px 6px;display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--ink);font-size:11px;line-height:1.15;text-align:center}
+.ipick button .mi{width:28px;height:28px;color:var(--accent)}
+.ipick button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.ipick button[aria-pressed="true"] .mi{color:var(--accent-ink)}
 .lockhero{align-items:center;text-align:center;padding-block:36px 28px}
 .lockhero .logo{width:76px;height:76px}
 .lockhero h1{font-size:24px;letter-spacing:.18em;opacity:.5;margin:4px 0 0}
@@ -362,6 +372,34 @@ function chart(points, opt){
   pts.forEach((p,i)=>{ const last=i===pts.length-1; if(!last) return; s+=`<circle cx="${r1(p[0])}" cy="${r1(p[1])}" r="${last?4.5:3}" fill="${last?'var(--accent)':'var(--surface)'}" stroke="var(--accent)" stroke-width="1.8"/>`; });
   return s+'</svg>';
 }
+
+/* ---------- machine icons ---------- */
+const MIH=(x,y)=>`<circle cx="${x}" cy="${y}" r="2" fill="currentColor" stroke="none"/>`;
+const MICONS = {
+  chest:{name:'Chest press', d:`${MIH(7,5)}<path d="M4 4v11h7M7 8v6M7 10h7M14 7.5v5M17 10h4M19 8l2 2-2 2"/>`},
+  pec:{name:'Pec deck', d:`${MIH(12,6)}<path d="M12 8.5v8M12 10.5H7V5M12 10.5h5V5M9 20h6"/><path d="M4.5 13.5l2 1.5M19.5 13.5l-2 1.5"/>`},
+  shoulder:{name:'Shoulder press', d:`${MIH(12,10)}<path d="M12 12.5v6M8 18.5h8M10 13l-2-7M14 13l2-7M5 5.5h14M12 1.8v2"/><path d="M10.5 3.2L12 1.8l1.5 1.4"/>`},
+  lat:{name:'Lat pulldown', d:`${MIH(12,11)}<path d="M12 13.5v5.5M8 19h8M10.2 14L7.5 6M13.8 14l2.7-8M5 5.5h14M12 5.5V1"/>`},
+  row:{name:'Seated row', d:`${MIH(6,5)}<path d="M6 7.5v7.5M3 15h7M10 15l5 3M16 13v7M6.5 9.5l5 1M11.5 8.5v4M11.5 10.5H22M17 7.5l-2 1.5 2 1.5"/>`},
+  pullup:{name:'Pull-up', d:`${MIH(12,8)}<path d="M4 2.5h16M9 2.5l1 6M15 2.5l-1 6M12 10.5v6M12 16.5l3 2.5M9 19.5h9"/>`},
+  legpress:{name:'Leg press', d:`${MIH(5,7)}<path d="M3 10l4 8M6 10l3 6M9 16l5-5 4 2M20 7l-3 12"/>`},
+  legext:{name:'Leg extension', d:`${MIH(6,4)}<path d="M3 5v9h8M6 7v7M11 14l7-4"/><circle cx="18.5" cy="9.7" r="1.4"/><path d="M15 17.5a6 6 0 0 0 5-3.5"/>`},
+  legcurl:{name:'Leg curl', d:`${MIH(6,4)}<path d="M3 5v9h9M6 7v7M12 14l-1 6"/><circle cx="11" cy="20" r="1.4"/><path d="M16 13.5a5 5 0 0 1 0 6"/>`},
+  calf:{name:'Calf raise', d:`${MIH(12,3)}<path d="M8.5 6h7M12 5.5v8M12 13.5l-1 5.5M12 13.5l1 5.5M7 20.5h10M19 15V9M17.5 10.5L19 9l1.5 1.5"/>`},
+  abduct:{name:'Hip abduction', d:`${MIH(12,4)}<path d="M12 6.5v6M8 12.5h8M11 12.5l-4 7M13 12.5l4 7M6 14H1.5M3.5 12l-2 2 2 2M18 14h4.5M20.5 12l2 2-2 2"/>`},
+  adduct:{name:'Hip adduction', d:`${MIH(12,4)}<path d="M12 6.5v6M8 12.5h8M11 12.5l-4 7M13 12.5l4 7M1 14h4.5M3.5 12l2 2-2 2M23 14h-4.5M20.5 12l-2 2 2 2"/>`},
+  crunch:{name:'Ab crunch', d:`${MIH(12,7)}<path d="M8 15q0-5 3-6.5M4 15h8M12 15h4v5M14.5 6.5l1.5 4"/>`},
+  backext:{name:'Back extension', d:`${MIH(5,5)}<path d="M11 15L6.5 7.5M4 15h11M15 15v5M3 9.5l3-1.5"/>`},
+  stack:{name:'Weight stack', d:`<path d="M6 3v18M18 3v18M8 7h8v3H8zM8 12h8v3H8zM8 17h8v3H8zM12 3v4"/>`},
+  dumbbell:{name:'Dumbbell', d:`<path d="M3 10v4M6 7v10M18 7v10M21 10v4M6 12h12"/>`},
+};
+const ICON_GUESS = [[/pull-?up|chin|dip/,'pullup'],[/pull-?down|\blat\b/,'lat'],[/row/,'row'],[/pec|fly/,'pec'],[/chest|bench/,'chest'],[/shoulder|overhead|military/,'shoulder'],
+  [/leg press|squat|hack/,'legpress'],[/leg ext|quad/,'legext'],[/(leg|hamstring).*curl|curl.*(leg|hamstring)/,'legcurl'],[/calf/,'calf'],[/abduct/,'abduct'],[/adduct/,'adduct'],
+  [/back ext|lower back|hyper/,'backext'],[/crunch|\babs?\b|abdom|core/,'crunch'],[/dumbbell|\bdb\b/,'dumbbell']];
+const guessIcon = name => { const n=String(name||'').toLowerCase(); const g=ICON_GUESS.find(([re])=>re.test(n)); return g?g[1]:'stack'; };
+const iconKey = m => (m && MICONS[m.icon]) ? m.icon : guessIcon(m&&m.name);
+const iconSvg = (k, cls) => `<svg class="${cls||'mi'}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${(MICONS[k]||MICONS.stack).d}</svg>`;
+const micon = (m, cls) => `<span class="${cls||'mtile'}">${iconSvg(iconKey(m))}</span>`;
 
 /* ---------- muscle map ---------- */
 const MUSCLES = {
@@ -946,7 +984,7 @@ function renderChrome(){
 }
 function renderStrip(){
   const ms = sorted();
-  $('#strip').innerHTML = ms.map(m=>{ const l=entries(m.id)[0]; return `<button class="chip" data-sel="${esc(m.id)}" aria-current="${m.id===S.sel}"><span class="dot ${l?zoneOf(l.seconds):''}"></span>${esc(m.name)}</button>`; }).join('')
+  $('#strip').innerHTML = ms.map(m=>{ const l=entries(m.id)[0]; return `<button class="chip" data-sel="${esc(m.id)}" aria-current="${m.id===S.sel}"><span class="dot ${l?zoneOf(l.seconds):''}"></span>${iconSvg(iconKey(m))}${esc(m.name)}</button>`; }).join('')
     + (S.mode==='loading' ? '' : `<button class="chip add" data-act="add-machine">+ Add machine</button>`);
   const c=$('#strip [aria-current="true"]'); if(c && !renderStrip.done){ c.scrollIntoView({inline:'center',block:'nearest'}); renderStrip.done=true; }
 }
@@ -1004,7 +1042,7 @@ function pageSession(){
   const todays = allSets().filter(e=>e.date===today()).sort((a,b)=>byName(mById(a.mid),mById(b.mid))||(a.ts||0)-(b.ts||0));
   return `
   <section class="head">
-    <div><h1>${esc(m.name)}</h1><div class="meta">${tg.length?tg.map(t=>MUSCLES[t].name).join(' · '):esc(m.muscle||'')}</div></div>
+    <div style="display:flex;gap:12px;align-items:center;min-width:0">${micon(m,'mtile lg')}<div style="min-width:0"><h1>${esc(m.name)}</h1><div class="meta">${tg.length?tg.map(t=>MUSCLES[t].name).join(' · '):esc(m.muscle||'')}</div></div></div>
     <button class="ghost" data-act="edit-machine">Edit</button>
   </section>
   <section class="card" aria-labelledby="lg">
@@ -1150,7 +1188,7 @@ function pageSettings(){
     </section>
     <section class="card" style="gap:0">
       <p class="label" style="margin-bottom:8px">Machines · ${S.machines.length}</p>
-      ${sorted().map(m=>{ const tg=normT(m); return `<div class="mrow"><div class="mrow-l">${m.photo?`<img class="thumb" src="${esc(photoSrc(m.photo))}" alt="">`:`<span class="thumb ph"></span>`}<div><div class="n">${esc(m.name)}</div><p class="meta">${tg.length?tg.map(t=>MUSCLES[t].name).join(', '):'No muscles set'}</p></div></div><button class="ghost" data-act="edit-machine" data-mid="${esc(m.id)}">Edit</button></div>`; }).join('')}
+      ${sorted().map(m=>{ const tg=normT(m); return `<div class="mrow"><div class="mrow-l">${m.photo?`<img class="thumb" src="${esc(photoSrc(m.photo))}" alt="">`:micon(m)}<div><div class="n">${esc(m.name)}</div><p class="meta">${tg.length?tg.map(t=>MUSCLES[t].name).join(', '):'No muscles set'}</p></div></div><button class="ghost" data-act="edit-machine" data-mid="${esc(m.id)}">Edit</button></div>`; }).join('')}
       <button class="primary" style="margin-top:12px" data-act="add-machine">Add a machine</button>
     </section>
     ${passwordCard()}
@@ -1177,6 +1215,7 @@ function renderSheet(){
     const inc = sh.id ? (unit()==='lb'?m.incLb:m.incKg) : '';
     body = `<h2>${sh.id?'Edit machine':'Add a machine'}</h2>
       <div class="field"><label class="label" for="f-name">Name</label><input id="f-name" value="${esc(sh.form?sh.form.name:(m.name||''))}" placeholder="e.g. Leg Press" autocomplete="off"></div>
+      <div class="field"><span class="label">Icon</span><div class="ipick" role="group" aria-label="Machine icon">${(()=>{ const curI = sh.icon || (sh.id?iconKey(m):guessIcon('')); return Object.keys(MICONS).map(k=>`<button type="button" data-mi="${k}" aria-pressed="${k===curI}">${iconSvg(k)}<span>${MICONS[k].name}</span></button>`).join(''); })()}</div><small>${sh.id?'':'Picked for you from the name if you leave it.'}</small></div>
       <div class="field"><span class="label">Muscles it works</span><div class="mchips">${Object.keys(MUSCLES).sort((a,b)=>MUSCLES[a].name.localeCompare(MUSCLES[b].name)).map(k=>`<button class="mchip" data-mt="${k}" aria-pressed="${sh.targets.includes(k)}">${MUSCLES[k].name}</button>`).join('')}</div><small>The first one you pick counts as its main muscle.</small></div>
       <div class="row2">
         <div class="field"><label class="label" for="f-inc">Weight step (${uLabel(unit())})</label><input id="f-inc" inputmode="numeric" value="${esc(inc||'')}" placeholder="${unit()==='lb'?S.prefs.lbStep:S.prefs.kgStep}"></div>
@@ -1265,7 +1304,8 @@ function showToast(msg, bad){ S.toast=msg; const el=$('#toast'); if(el){ el.text
 /* ---------- events ---------- */
 function selectMachine(id){ S.sel=id; try{localStorage.setItem('tul-sel',id)}catch(e){} }
 document.addEventListener('click', ev=>{
-  const b=ev.target.closest('[data-go],[data-sel],[data-start],[data-hv],[data-mt],[data-act],[data-unit],[data-muscle]'); if(!b) return;
+  const b=ev.target.closest('[data-go],[data-sel],[data-start],[data-hv],[data-mt],[data-mi],[data-act],[data-unit],[data-muscle]'); if(!b) return;
+  if(b.dataset.mi){ S.sheet.icon=b.dataset.mi; b.parentNode.querySelectorAll('[data-mi]').forEach(x=>x.setAttribute('aria-pressed', x===b)); return; }
   if(b.dataset.go){ go(b.dataset.go); return; }
   if(b.dataset.start){ selectMachine(b.dataset.start); go('session'); return; }
   if(b.dataset.hv){ S.histView=b.dataset.hv; renderStrip.done=false; render(); return; }
@@ -1284,7 +1324,7 @@ document.addEventListener('click', ev=>{
     case 'save-machine': {
       const name=$('#f-name').value.trim(); if(!name){ $('#f-err').textContent='Give the machine a name.'; $('#f-name').focus(); return; }
       const incV=Math.round(parseFloat($('#f-inc').value)); const base = S.sheet.id ? {...mById(S.sheet.id)} : {id:'m-'+rid(), settings:[], notes:'', order:(Math.max(-1,...S.machines.map(x=>x.order??0))+1)};
-      base.name=name; base.code=$('#f-code').value.trim(); base.targets=S.sheet.targets.slice(); base.muscle=base.targets.map(t=>MUSCLES[t].name).slice(0,2).join(', ');
+      base.name=name; base.code=$('#f-code').value.trim(); if(S.sheet.icon) base.icon=S.sheet.icon; else if(!base.icon) base.icon=guessIcon(name); base.targets=S.sheet.targets.slice(); base.muscle=base.targets.map(t=>MUSCLES[t].name).slice(0,2).join(', ');
       const key=unit()==='lb'?'incLb':'incKg'; if(incV>0) base[key]=incV; else delete base[key];
       const isNew=!S.sheet.id; closeSheet(); if(isNew){ selectMachine(base.id); renderStrip.done=false; } delete S.drafts[base.id]; saveMachine(base); render(); break; }
     case 'move': {
