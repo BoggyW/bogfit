@@ -209,6 +209,7 @@ label.go{display:block;font-size:22px}
 .htile b small{font-family:var(--f-body);font-size:13px;font-weight:500;color:var(--muted);margin-left:3px}
 .htile .hs{font-size:12.5px;color:var(--muted)}
 .down{color:var(--accent);font-weight:600}
+.vlink{display:inline-flex;align-items:center;gap:5px;margin-top:6px;padding:5px 11px 5px 8px;border-radius:999px;background:var(--accent-soft);color:var(--accent);font-weight:600;font-size:14px;text-decoration:none}
 .mtile{width:44px;height:44px;border-radius:10px;background:var(--accent-soft);color:var(--accent);display:inline-flex;align-items:center;justify-content:center;flex:none}
 .mtile .mi{width:28px;height:28px}
 .mtile.lg{width:52px;height:52px;border-radius:12px}.mtile.lg .mi{width:34px;height:34px}
@@ -370,6 +371,16 @@ function chart(points, opt){
   pts.forEach((p,i)=>{ const last=i===pts.length-1; if(!last) return; s+=`<circle cx="${r1(p[0])}" cy="${r1(p[1])}" r="${last?4.5:3}" fill="${last?'var(--accent)':'var(--surface)'}" stroke="var(--accent)" stroke-width="1.8"/>`; });
   return s+'</svg>';
 }
+
+/* ---------- how-to videos (Life Fitness QR links or YouTube) ---------- */
+function videoId(u){
+  try{ const x=new URL(String(u||'').trim()); const h=x.hostname.replace(/^www\.|^m\./,'');
+    if(x.searchParams.get('url-video')) return x.searchParams.get('url-video');
+    if(h==='youtu.be') return x.pathname.slice(1).split('/')[0]||null;
+    if(h.endsWith('youtube.com')||h.endsWith('youtube-nocookie.com')){ if(x.searchParams.get('v')) return x.searchParams.get('v'); const m=x.pathname.match(/\/(?:shorts|embed|live)\/([\w-]{6,})/); return m?m[1]:null; }
+  }catch(e){} return null;
+}
+function videoHref(m){ if(!m||!m.video) return ''; const id=videoId(m.video); return id ? 'https://www.youtube.com/watch?v='+encodeURIComponent(id) : m.video; }
 
 /* ---------- machine icons ---------- */
 const MIH=(x,y)=>`<circle cx="${x}" cy="${y}" r="2" fill="currentColor" stroke="none"/>`;
@@ -1040,7 +1051,7 @@ function pageSession(){
   const todays = allSets().filter(e=>e.date===today()).sort((a,b)=>byName(mById(a.mid),mById(b.mid))||(a.ts||0)-(b.ts||0));
   return `
   <section class="head">
-    <div style="display:flex;gap:12px;align-items:center;min-width:0">${micon(m,'mtile lg')}<div style="min-width:0"><h1>${esc(m.name)}</h1><div class="meta">${tg.length?tg.map(t=>MUSCLES[t].name).join(' · '):esc(m.muscle||'')}</div></div></div>
+    <div style="display:flex;gap:12px;align-items:center;min-width:0">${micon(m,'mtile lg')}<div style="min-width:0"><h1>${esc(m.name)}</h1><div class="meta">${tg.length?tg.map(t=>MUSCLES[t].name).join(' · '):esc(m.muscle||'')}</div>${m.video?`<a class="vlink" href="${esc(videoHref(m))}" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13l11-6.5z"/></svg>How-to video</a>`:''}</div></div>
     <button class="ghost" data-act="edit-machine">Edit</button>
   </section>
   <section class="card" aria-labelledby="lg">
@@ -1215,6 +1226,7 @@ function renderSheet(){
       <div class="field"><label class="label" for="f-name">Name</label><input id="f-name" value="${esc(sh.form?sh.form.name:(m.name||''))}" placeholder="e.g. Leg Press" autocomplete="off"></div>
       <div class="field"><span class="label">Icon</span><div class="ipick" role="group" aria-label="Machine icon">${(()=>{ const curI = sh.icon || (sh.id?iconKey(m):guessIcon('')); return Object.keys(MICONS).map(k=>`<button type="button" data-mi="${k}" aria-pressed="${k===curI}">${iconSvg(k)}<span>${MICONS[k].name}</span></button>`).join(''); })()}</div><small>${sh.id?'':'Picked for you from the name if you leave it.'}</small></div>
       <div class="field"><span class="label">Muscles it works</span><div class="mchips">${Object.keys(MUSCLES).sort((a,b)=>MUSCLES[a].name.localeCompare(MUSCLES[b].name)).map(k=>`<button class="mchip" data-mt="${k}" aria-pressed="${sh.targets.includes(k)}">${MUSCLES[k].name}</button>`).join('')}</div><small>The first one you pick counts as its main muscle.</small></div>
+      <div class="field"><label class="label" for="f-video">How-to video link (optional)</label><input id="f-video" type="url" inputmode="url" autocomplete="off" autocapitalize="off" value="${esc(m.video||'')}" placeholder="Paste the link from the machine's QR code"><small>Scan the QR code on the machine with your iPhone camera, open it, then copy the link and paste it here. YouTube links work too.</small></div>
       <div class="row2">
         <div class="field"><label class="label" for="f-inc">Weight step (${uLabel(unit())})</label><input id="f-inc" inputmode="numeric" value="${esc(inc||'')}" placeholder="${unit()==='lb'?S.prefs.lbStep:S.prefs.kgStep}"></div>
         <div class="field"><label class="label" for="f-code">Code (optional)</label><input id="f-code" value="${esc(m.code||'')}" placeholder="e.g. B6"></div>
@@ -1322,7 +1334,8 @@ document.addEventListener('click', ev=>{
     case 'save-machine': {
       const name=$('#f-name').value.trim(); if(!name){ $('#f-err').textContent='Give the machine a name.'; $('#f-name').focus(); return; }
       const incV=Math.round(parseFloat($('#f-inc').value)); const base = S.sheet.id ? {...mById(S.sheet.id)} : {id:'m-'+rid(), settings:[], notes:'', order:(Math.max(-1,...S.machines.map(x=>x.order??0))+1)};
-      base.name=name; base.code=$('#f-code').value.trim(); if(S.sheet.icon) base.icon=S.sheet.icon; else if(!base.icon) base.icon=guessIcon(name); base.targets=S.sheet.targets.slice(); base.muscle=base.targets.map(t=>MUSCLES[t].name).slice(0,2).join(', ');
+      base.name=name; base.code=$('#f-code').value.trim(); if(S.sheet.icon) base.icon=S.sheet.icon; else if(!base.icon) base.icon=guessIcon(name);
+      { const v=($('#f-video')&&$('#f-video').value||'').trim(); if(v && !/^https?:\/\//i.test(v)){ $('#f-err').textContent='That video link doesn’t look right. It should start with https://'; return; } if(v) base.video=v; else delete base.video; } base.targets=S.sheet.targets.slice(); base.muscle=base.targets.map(t=>MUSCLES[t].name).slice(0,2).join(', ');
       const key=unit()==='lb'?'incLb':'incKg'; if(incV>0) base[key]=incV; else delete base[key];
       const isNew=!S.sheet.id; closeSheet(); if(isNew){ selectMachine(base.id); renderStrip.done=false; } delete S.drafts[base.id]; saveMachine(base); render(); break; }
     case 'move': {
