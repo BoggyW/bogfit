@@ -1,5 +1,5 @@
 /* BogFit service worker: newest version whenever you're online, cached copy when you're not. */
-const CACHE = 'bogfit-20261004161032';
+const CACHE = 'bogfit-20261004163606';
 const CORE = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './apple-touch-icon.png'];
 self.addEventListener('install', e => { self.skipWaiting(); e.waitUntil(caches.open(CACHE).then(c => c.addAll(CORE))); });
 self.addEventListener('activate', e => e.waitUntil((async () => {

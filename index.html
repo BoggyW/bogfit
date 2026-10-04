@@ -259,7 +259,7 @@ label.go{display:block;font-size:22px}
 (function(){
 const KG = 0.45359237;
 const S = {
-  db:null, mode:'loading', machines:[], hist:{}, prefs:{unit:'kg',zoneMin:120,zoneMax:140,kgStep:1,lbStep:2,timerGreen:120,timerMax:180},
+  db:null, mode:'loading', machines:[], hist:{}, prefs:{unit:'kg',zoneMin:120,zoneMax:140,kgStep:7.5,lbStep:2,timerGreen:120,timerMax:180},
   profile:{name:'',bodyweight:'',height:'',gym:'BlueFit Lane Cove',goal:''},
   locked:!(window.claude && window.claude.use), health:null, healthBusy:false, healthMsg:'', page:'home', histView:'sessions', sel:null, muscle:null, drafts:{}, toast:'', sheet:null, timer:null
 };
@@ -278,7 +278,9 @@ const INC_KG=[0.5,1,2,2.5,5,10], INC_LB=[1,2,2.5,5,10,15];
 const r2 = n => Math.round(n*100)/100;
 const inUnit = e => { const from=e.unit||'kg', v=conv(Number(e.weight)||0, from, unit()); return from===unit() ? r2(v) : Math.round(v); };
 const stepFor = m => { const v = unit()==='lb' ? (Number(m&&m.incLb)||Number(S.prefs.lbStep)||2) : (Number(m&&m.incKg)||Number(S.prefs.kgStep)||1); return v>0 ? v : 1; };
-const snap = (w, st) => Math.max(0, r2(w));
+const snap = (w, st) => Math.max(0, r2(Math.round(r2(w/st))*st));
+const stepUp = (w, st) => r2((Math.floor(r2(w/st))+1)*st);
+const stepDown = (w, st) => Math.max(0, r2((Math.ceil(r2(w/st))-1)*st));
 const pDate = s => { const [y,m,d]=s.split('-').map(Number); return new Date(y,m-1,d); };
 const fmtDate = s => pDate(s).toLocaleDateString('en-AU',{day:'numeric',month:'short'});
 const fmtLong = s => pDate(s).toLocaleDateString('en-AU',{weekday:'short',day:'numeric',month:'short',year: pDate(s).getFullYear()===new Date().getFullYear()?undefined:'numeric'});
@@ -859,7 +861,7 @@ async function doRestore(){
     S.drafts={}; S.sel=null; pickSel();
     S.bkMsg=`Restored ${data.machines.length} machines and ${setCount(data.history)} sets from ${new Date(data.exportedAt).toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'numeric'})}.`;
   }catch(e){ console.error(e); S.bkMsg="Couldn't finish the restore. Try again with the same file."; }
-  S.bkBusy=false; render();
+  S.bkBusy=false; S.inc75Ran=false; migrateInc75(); render();
 }
 function backupCard(){
   const lb=lastBackup(), d=S.restore;
@@ -1277,6 +1279,13 @@ function openSheet(s){ S.sheet={...s, key:rid()}; renderSheet(); }
 function closeSheet(){ S.sheet=null; renderSheet(); }
 function resheet(){ if(S.sheet&&S.sheet.type==='machine'){ const n=$('#f-name'); S.sheet.form={name:n?n.value:''}; } S.sheet.key=rid(); renderSheet(); }
 
+/* One-time update (Oct 2026): every machine's stack goes 7.5, 15, 22.5 ... so set all increments to 7.5 kg. */
+function migrateInc75(){
+  if(S.inc75Ran || S.prefs.inc75 || S.bkBusy || S.mode!=='db' || !S.machines.length) return; S.inc75Ran=true;
+  S.machines.forEach(m=>{ if(Number(m.incKg)!==7.5) saveMachine({...m, incKg:7.5}); });
+  S.drafts={}; savePrefs({kgStep:7.5, inc75:true});
+}
+
 /* ---------- saving a set ---------- */
 function saveSet(m){
   const d=draft(m), w=r2(parseFloat(String(d.weight).replace(',','.'))), s=d.seconds===''?null:parseInt(d.seconds,10), r=d.reps===''?null:parseInt(d.reps,10);
@@ -1372,7 +1381,7 @@ document.addEventListener('click', ev=>{
       if(S.sel===id) S.sel = next?next.id:null; delDoc('machines',id); delDoc('history',id); render(); break; }
     case 'inc': case 'dec': {
       if(S.justSaved && S.justSaved.mid===m.id){ S.justSaved=null; const bb=document.querySelector('[data-act="edit-entry"].alt'); if(bb) bb.outerHTML='<button class="primary" data-act="save-set">Save set</button>'; }
-      const d=draft(m), st=stepFor(m), w=parseFloat(d.weight)||0; d.weight=String(snap(w+(act==='inc'?st:-st), st)); $('#d-weight').value=d.weight; break; }
+      const d=draft(m), st=stepFor(m), w=parseFloat(d.weight)||0; d.weight=String(act==='inc' ? stepUp(w,st) : stepDown(w,st)); $('#d-weight').value=d.weight; break; }
     case 'timer': startTimer(); break;
     case 'timer-stop': endTimer(true); break;
     case 'timer-cancel': endTimer(false); break;
@@ -1448,7 +1457,7 @@ const fallback = setTimeout(()=>{ if(S.mode==='loading') goLocal(); }, 12000);
 boot.then(db=>{
   if(!db){ clearTimeout(fallback); goLocal(); return; }
   S.db=db; let got={m:false,h:false};
-  const ready=()=>{ if(got.m&&got.h&&S.mode==='loading'){ clearTimeout(fallback); S.mode='db'; dbReadyFn(); } if(S.mode!=='loading'){ pickSel(); render(); } };
+  const ready=()=>{ if(got.m&&got.h&&S.mode==='loading'){ clearTimeout(fallback); S.mode='db'; dbReadyFn(); } if(S.mode!=='loading'){ pickSel(); migrateInc75(); render(); } };
   const onErr=e=>{ console.error(e); if(S.mode==='loading'){ clearTimeout(fallback); S.db=null; goLocal(); } };
   db.collection('machines').onSnapshot(snap=>{ S.machines=snap.docs.map(d=>({id:d.id,...d.data()})); got.m=true; ready(); }, onErr);
   db.collection('history').onSnapshot(snap=>{ const h={}; snap.docs.forEach(d=>h[d.id]={...d.data()}); S.hist=h; got.h=true; ready(); }, onErr);
