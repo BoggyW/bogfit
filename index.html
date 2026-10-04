@@ -115,7 +115,17 @@ textarea{resize:vertical;min-height:80px}
 .timer{position:fixed;inset:0;z-index:30;background:var(--ink);color:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;padding:24px 16px calc(24px + env(safe-area-inset-bottom,0px))}
 .timer .mname{font-family:var(--f-display);font-size:26px;font-weight:600;letter-spacing:.03em;opacity:.8;text-align:center}
 .timer .phase{font-size:15px;letter-spacing:.12em;text-transform:uppercase;font-weight:600;opacity:.7}
-.timer .clock{font-family:var(--f-display);font-weight:700;font-size:min(42vw,200px);line-height:.9;font-variant-numeric:tabular-nums}
+.timer .clock{font-family:var(--f-display);font-weight:700;font-size:min(42vw,200px,22vh);line-height:.9;font-variant-numeric:tabular-nums}
+.tinfo{width:100%;max-width:420px;background:rgb(127 127 127/.16);border-radius:16px;padding:14px 16px;display:flex;flex-direction:column;gap:10px}
+.tinfo .tw{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+.tinfo .tw b{font-family:var(--f-display);font-size:44px;line-height:1;font-variant-numeric:tabular-nums}
+.tinfo .tw b small{font-size:20px;opacity:.7;margin-left:4px}
+.tinfo .tl{font-size:13px;opacity:.65;text-align:right;line-height:1.3}
+.tinfo .tset{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;border-top:1px solid rgb(127 127 127/.3);padding-top:10px}
+.tinfo .tset div{display:flex;flex-direction:column;min-width:0}
+.tinfo .tset span{font-size:12px;letter-spacing:.06em;text-transform:uppercase;opacity:.6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tinfo .tset strong{font-family:var(--f-display);font-size:24px;line-height:1.1;overflow-wrap:anywhere}
+.tinfo .tnote{font-size:14px;opacity:.75;border-top:1px solid rgb(127 127 127/.3);padding-top:8px;white-space:pre-wrap}
 .timer.red .clock,.timer.red .tline{color:var(--under)}.timer.green .clock,.timer.green .tline{color:var(--zone)}.tline .mark{position:absolute;top:0;bottom:0;width:2px;background:var(--bg);opacity:.7;z-index:1}
 .tline{width:100%;max-width:420px;height:14px;border-radius:7px;background:rgb(127 127 127/.3);position:relative;overflow:hidden}
 .tline .band{position:absolute;top:0;bottom:0;background:rgb(92 194 138/.35)}
@@ -1175,7 +1185,16 @@ function startTimer(){
   S.timer={start:performance.now()};
   try{ navigator.wakeLock && navigator.wakeLock.request('screen').then(w=>wake=w).catch(()=>{}); }catch(e){}
   const g=GREEN_AT(), mx=MAX_T(), mm=s=>Math.floor(s/60)+':'+String(s%60).padStart(2,'0');
-  $('#timerRoot').innerHTML = `<div class="timer" id="tm" role="dialog" aria-label="Set timer"><div class="mname">${esc(m.name)}</div><div class="clock" id="tm-c" aria-live="off"></div>
+  const d=draft(m), last=entries(m.id)[0], u=unit();
+  const w = d.weight!=='' ? Math.round(parseFloat(d.weight)) : (last ? inUnit(last) : null);
+  const sets=(m.settings||[]).filter(x=>(x.label||'').trim()||(x.value||'').trim());
+  const note=(m.notes||'').trim();
+  const info = `<div class="tinfo">
+      <div class="tw"><b>${w!=null&&!isNaN(w)?w:'—'}<small>${uLabel(u)}</small></b>${last?`<span class="tl">Last time ${fmtDate(last.date)}<br>${inUnit(last)} ${uLabel(u)}${last.seconds!=null?' · '+last.seconds+' s':(last.reps?' · '+last.reps+' reps':'')}</span>`:''}</div>
+      ${sets.length?`<div class="tset">${sets.map(x=>`<div><span>${esc(x.label||'Setting')}</span><strong>${esc(x.value||'—')}</strong></div>`).join('')}</div>`:''}
+      ${note?`<div class="tnote">${esc(note.length>140?note.slice(0,140)+'…':note)}</div>`:''}
+    </div>`;
+  $('#timerRoot').innerHTML = `<div class="timer" id="tm" role="dialog" aria-label="Set timer"><div class="mname">${esc(m.name)}</div>${info}<div class="clock" id="tm-c" aria-live="off"></div>
     <div class="tline"><div class="mark" style="left:${g/mx*100}%"></div><div class="fill" id="tm-f"></div></div>
     <div class="tscale"><span style="left:0">0</span><span style="left:${g/mx*100}%">${mm(g)}</span><span style="left:100%">${mm(mx)}</span></div>
     <div class="tact"><button class="cancel" data-act="timer-cancel">Cancel</button><button class="stop" data-act="timer-stop">Stop</button></div></div>`;
