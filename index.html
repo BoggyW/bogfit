@@ -754,8 +754,8 @@ function shrinkImage(file){
     img.src=url;
   });
 }
-async function addPhoto(file){
-  const m=cur(); if(!m||!file) return;
+async function addPhoto(file, mid){
+  const m=mid?mById(mid):cur(); if(!m||!file) return;
   if(!ASSETS){ S.photoMsg="Photos can't be saved in this browser."; render(); return; }
   S.photoBusy=true; S.photoMsg=''; render();
   try{
@@ -1247,12 +1247,16 @@ function renderSheet(){
     const inc = sh.id ? (unit()==='lb'?m.incLb:m.incKg) : '';
     body = `<h2>${sh.id?'Edit machine':'Add a machine'}</h2>
       <div class="field"><label class="label" for="f-name">Name</label><input id="f-name" value="${esc(sh.form?sh.form.name:(m.name||''))}" placeholder="e.g. Leg Press" autocomplete="off"></div>
+      ${(()=>{ const src = sh.id ? (m.photo?photoSrc(m.photo):'') : (sh.pendingUrl||''); return `<div class="field"><span class="label">Photo</span>
+        ${src?`<img class="mphoto" src="${esc(src)}" alt="Photo of ${esc(m.name||'this machine')}" style="max-height:220px">`:''}
+        ${ASSETS?`<div class="actions-row"><label class="ghost photo-btn" style="${S.photoBusy?'opacity:.5;pointer-events:none':''}">${S.photoBusy?'Saving…':(src?'Replace photo':'Add a photo')}<input id="f-photo" type="file" accept="image/*" hidden></label>${src?`<button type="button" class="ghost" data-act="sheet-photo-del">Remove photo</button>`:''}</div>`:`<small>Photos can't be saved in this browser.</small>`}
+        ${S.photoMsg?`<small style="color:var(--under)">${esc(S.photoMsg)}</small>`:''}</div>`; })()}
       <div class="field"><span class="label">Icon</span><div class="ipick" role="group" aria-label="Machine icon">${(()=>{ const curI = sh.icon || (sh.id?iconKey(m):guessIcon('')); return Object.keys(MICONS).map(k=>`<button type="button" data-mi="${k}" aria-pressed="${k===curI}">${iconSvg(k)}<span>${MICONS[k].name}</span></button>`).join(''); })()}</div><small>${sh.id?'':'Picked for you from the name if you leave it.'}</small></div>
       <div class="field"><span class="label">Muscles it works</span><div class="mchips">${Object.keys(MUSCLES).sort((a,b)=>MUSCLES[a].name.localeCompare(MUSCLES[b].name)).map(k=>`<button class="mchip" data-mt="${k}" aria-pressed="${sh.targets.includes(k)}">${MUSCLES[k].name}</button>`).join('')}</div><small>The first one you pick counts as its main muscle.</small></div>
-      <div class="field"><label class="label" for="f-video">How-to video link (optional)</label><input id="f-video" type="url" inputmode="url" autocomplete="off" autocapitalize="off" value="${esc(m.video||'')}" placeholder="Paste the link from the machine's QR code"><small>Scan the QR code on the machine with your iPhone camera, open it, then copy the link and paste it here. YouTube links work too.</small></div>
+      <div class="field"><label class="label" for="f-video">How-to video link (optional)</label><input id="f-video" type="url" inputmode="url" autocomplete="off" autocapitalize="off" value="${esc(sh.form&&sh.form.video!=null?sh.form.video:(m.video||''))}" placeholder="Paste the link from the machine's QR code"><small>Scan the QR code on the machine with your iPhone camera, open it, then copy the link and paste it here. YouTube links work too.</small></div>
       <div class="row2">
-        <div class="field" style="grid-column:1/-1"><label class="label" for="f-inc">Weight increment (${uLabel(unit())})</label>${(()=>{ const curInc = Number(inc)||Number(unit()==='lb'?S.prefs.lbStep:S.prefs.kgStep)||1; return `<input id="f-inc" inputmode="decimal" autocomplete="off" value="${fmt(curInc)}" style="max-width:140px"><div class="mchips" role="group" aria-label="Common increments" style="margin-top:6px">${(unit()==='lb'?INC_LB:INC_KG).map(v=>`<button type="button" class="mchip" data-inc="${v}" aria-pressed="${v===curInc}">${fmt(v)}</button>`).join('')}</div>`; })()}<small>Type how much the weight goes up or down on this machine, or tap a common one. + and − and the next-set suggestion use it.</small></div>
-        <div class="field"><label class="label" for="f-code">Code (optional)</label><input id="f-code" value="${esc(m.code||'')}" placeholder="e.g. B6"></div>
+        <div class="field" style="grid-column:1/-1"><label class="label" for="f-inc">Weight increment (${uLabel(unit())})</label>${(()=>{ const curInc = Number(inc)||Number(unit()==='lb'?S.prefs.lbStep:S.prefs.kgStep)||1; return `<input id="f-inc" inputmode="decimal" autocomplete="off" value="${esc(sh.form&&sh.form.inc!=null?sh.form.inc:fmt(curInc))}" style="max-width:140px">`; })()}<small>How much the weight goes up or down on this machine. + and − and the next-set suggestion use it.</small></div>
+        <div class="field"><label class="label" for="f-code">Code (optional)</label><input id="f-code" value="${esc(sh.form&&sh.form.code!=null?sh.form.code:(m.code||''))}" placeholder="e.g. B6"></div>
       </div>
       <p class="toast" id="f-err" style="color:var(--under)"></p>
       <div class="actions"><button class="ghost" data-act="close">Cancel</button><button class="primary" data-act="save-machine">${sh.id?'Save changes':'Add machine'}</button></div>
@@ -1275,9 +1279,9 @@ function renderSheet(){
   root.innerHTML = `<div class="scrim" data-act="scrim"><div class="sheet" role="dialog" aria-modal="true">${body}</div></div>`;
   const f=root.querySelector('input'); if(f && !sh.focused){ sh.focused=true; if(sh.type==='machine' && !sh.id) f.focus(); }
 }
-function openSheet(s){ S.sheet={...s, key:rid()}; renderSheet(); }
+function openSheet(s){ S.photoMsg=''; S.sheet={...s, key:rid()}; renderSheet(); }
 function closeSheet(){ S.sheet=null; renderSheet(); }
-function resheet(){ if(S.sheet&&S.sheet.type==='machine'){ const n=$('#f-name'); S.sheet.form={name:n?n.value:''}; } S.sheet.key=rid(); renderSheet(); }
+function resheet(){ if(S.sheet&&S.sheet.type==='machine'){ const v=id=>{ const e=$('#'+id); return e?e.value:undefined; }; S.sheet.form={name:v('f-name')||'', video:v('f-video'), inc:v('f-inc'), code:v('f-code')}; } S.sheet.key=rid(); renderSheet(); }
 
 /* One-time update (Oct 2026): every machine's stack goes 7.5, 15, 22.5 ... so set all increments to 7.5 kg. */
 function migrateInc75(){
@@ -1370,7 +1374,9 @@ document.addEventListener('click', ev=>{
       base.name=name; base.code=$('#f-code').value.trim(); if(S.sheet.icon) base.icon=S.sheet.icon; else if(!base.icon) base.icon=guessIcon(name);
       { const v=($('#f-video')&&$('#f-video').value||'').trim(); if(v && !/^https?:\/\//i.test(v)){ $('#f-err').textContent='That video link doesn’t look right. It should start with https://'; return; } if(v) base.video=v; else delete base.video; } base.targets=S.sheet.targets.slice(); base.muscle=base.targets.map(t=>MUSCLES[t].name).slice(0,2).join(', ');
       const key=unit()==='lb'?'incLb':'incKg'; if(incV>0){ base[key]=incV; if(S.sheet.id) delete S.drafts[base.id]; }
-      const isNew=!S.sheet.id; closeSheet(); if(isNew){ selectMachine(base.id); renderStrip.done=false; } delete S.drafts[base.id]; saveMachine(base); render(); break; }
+      const isNew=!S.sheet.id, pend=S.sheet.pendingBlob; closeSheet(); if(isNew){ selectMachine(base.id); renderStrip.done=false; } delete S.drafts[base.id]; saveMachine(base); render();
+      if(isNew && pend && ASSETS){ ASSETS.upload(pend, pend.type?undefined:{type:'image/jpeg'}).then(r=>{ const mm=mById(base.id); if(mm) saveMachine({...mm, photo:r.id}); render(); }).catch(e=>{ console.error(e); showToast("Couldn't save the photo. Add it again from Edit machine.", true); }); }
+      break; }
     case 'move': {
       const ms=sorted(), i=ms.findIndex(x=>x.id===S.sheet.id), j=i+Number(b.dataset.dir); if(j<0||j>=ms.length) return;
       ms.splice(j,0,ms.splice(i,1)[0]);
@@ -1403,6 +1409,10 @@ document.addEventListener('click', ev=>{
     case 'face-off': disableFace(); break;
     case 'face-skip': try{ localStorage.setItem(FACE_KEY+'-asked','1'); }catch(e){} render(); break;
     case 'photo-ask': S.photoConfirm=m.id; render(); break;
+    case 'sheet-photo-del': { const sh=S.sheet;
+      if(sh.id){ const mm=mById(sh.id); if(mm&&mm.photo){ const id=mm.photo, y={...mm}; delete y.photo; saveMachine(y); if(ASSETS) ASSETS.delete(id).catch(()=>{}); } }
+      else { if(sh.pendingUrl) URL.revokeObjectURL(sh.pendingUrl); sh.pendingBlob=null; sh.pendingUrl=''; }
+      resheet(); break; }
     case 'photo-del': { const id=m.photo; S.photoConfirm=null; const y={...m}; delete y.photo; saveMachine(y); if(ASSETS&&id) ASSETS.delete(id).catch(()=>{}); render(); break; }
     case 'add-setting': {
       const y={...m, settings:[...(m.settings||[]), {label:'',value:''}]}; saveMachine(y); render();
@@ -1425,6 +1435,10 @@ document.addEventListener('input', ev=>{
 document.addEventListener('change', ev=>{
   const t=ev.target, m=cur();
   if(t.id==='ph-file'){ addPhoto(t.files&&t.files[0]); t.value=''; return; }
+  if(t.id==='f-photo'){ const f=t.files&&t.files[0]; t.value=''; if(!f||!S.sheet) return; const sh=S.sheet;
+    if(sh.id){ addPhoto(f, sh.id).then(()=>{ if(S.sheet===sh) resheet(); }); resheet(); }
+    else { S.photoBusy=true; resheet(); shrinkImage(f).then(b=>{ if(sh.pendingUrl) URL.revokeObjectURL(sh.pendingUrl); sh.pendingBlob=b; sh.pendingUrl=URL.createObjectURL(b); S.photoBusy=false; if(S.sheet===sh) resheet(); }); }
+    return; }
   if(t.id==='h-file'){ importHealth(t.files&&t.files[0]); t.value=''; return; }
   if(t.id==='rs-file'){ pickRestore(t.files&&t.files[0]); t.value=''; return; }
   if(t.dataset.prof){ saveProfile({[t.dataset.prof]: t.value.trim()}); return; }
