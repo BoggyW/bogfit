@@ -179,6 +179,10 @@ body{padding-bottom:calc(96px + env(safe-area-inset-bottom,0px))}
 .srow .n{font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .srow .v{font-family:var(--f-display);font-weight:700;font-size:20px;font-variant-numeric:tabular-nums;text-align:right;min-width:52px}
 .srow .v small{font-family:var(--f-body);font-weight:500;font-size:12px;color:var(--muted);margin-left:2px}
+.srow.split button{border:0;background:transparent;padding:4px 0;font:inherit;color:inherit;text-align:left;min-width:0}
+.srow.split .n{color:var(--ink);text-decoration:underline;text-decoration-color:var(--line);text-underline-offset:3px}
+.srow.split .vals{grid-column:span 2;display:flex;gap:12px;justify-content:flex-end;border-radius:8px}
+.srow.split .vals:active,.srow.split .n:active{background:var(--sunk)}
 .srow .v.zone{color:var(--zone)}.srow .v.over{color:var(--over)}.srow .v.under{color:var(--under)}
 .segwide{display:grid;grid-template-columns:1fr 1fr;background:var(--sunk);border-radius:12px;padding:3px}
 .segwide button{border:0;background:transparent;padding:9px;border-radius:10px;font-weight:600;color:var(--muted)}
@@ -1026,7 +1030,7 @@ function renderMain(){
   main.innerHTML = banner + fn();
 }
 const setLine = e => { const u=unit(); return `<span class="v">${inUnit(e)}<small>${uLabel(u)}</small></span><span class="v ${zoneOf(e.seconds)}">${e.seconds!=null?e.seconds+'<small>s</small>':(e.reps?e.reps+'<small>reps</small>':'—')}</span>`; };
-const setRow = e => `<button class="srow" data-act="edit-entry" data-mid="${esc(e.mid)}" data-eid="${esc(e.id)}"><span class="n">${esc(mById(e.mid).name)}</span>${setLine(e)}</button>`;
+const setRow = e => `<div class="srow split"><button class="n" data-act="edit-machine" data-mid="${esc(e.mid)}" aria-label="Machine settings for ${esc(mById(e.mid).name)}">${esc(mById(e.mid).name)}</button><button class="vals" data-act="edit-entry" data-mid="${esc(e.mid)}" data-eid="${esc(e.id)}" aria-label="Edit this set">${setLine(e)}</button></div>`;
 
 /* ---------- cover ---------- */
 function weekStart(){ const d=new Date(); const day=(d.getDay()+6)%7; d.setDate(d.getDate()-day); return iso(d); }
