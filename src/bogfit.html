@@ -874,7 +874,7 @@ async function doRestore(){
     S.drafts={}; S.sel=null; pickSel();
     S.bkMsg=`Restored ${data.machines.length} machines and ${setCount(data.history)} sets from ${new Date(data.exportedAt).toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'numeric'})}.`;
   }catch(e){ console.error(e); S.bkMsg="Couldn't finish the restore. Try again with the same file."; }
-  S.bkBusy=false; S.inc75Ran=false; S.addOctRan=false; migrateInc75(); migrateAddOct26(); render();
+  S.bkBusy=false; S.inc75Ran=false; S.addOctRan=false; S.dropKRan=false; migrateInc75(); migrateAddOct26(); migrateDropKieser(); render();
 }
 function backupCard(){
   const lb=lastBackup(), d=S.restore;
@@ -1324,6 +1324,16 @@ function migrateAddOct26(){
   savePrefs({addOct26:true});
 }
 
+/* One-time update (Oct 2026): Rob decided the imported Kieser sets (ids k0, k1 ...) aren't comparable with BlueFit machines.
+   Remove them; keep every set logged in BogFit (ids e-...). */
+const isKieser = e => /^k\d+$/.test(String(e&&e.id||''));
+function migrateDropKieser(){
+  if(S.dropKRan || S.prefs.dropKieser || S.bkBusy || S.mode!=='db' || !S.machines.length) return; S.dropKRan=true;
+  Object.keys(S.hist).forEach(id=>{ const list=(S.hist[id].entries||[]); const keep=list.filter(e=>!isKieser(e));
+    if(keep.length===list.length) return; if(keep.length) saveHist(id, keep); else delDoc('history', id); });
+  S.drafts={}; savePrefs({dropKieser:true});
+}
+
 /* ---------- saving a set ---------- */
 function saveSet(m){
   const d=draft(m), w=r2(parseFloat(String(d.weight).replace(',','.'))), s=d.seconds===''?null:parseInt(d.seconds,10), r=d.reps===''?null:parseInt(d.reps,10);
@@ -1507,7 +1517,7 @@ const fallback = setTimeout(()=>{ if(S.mode==='loading') goLocal(); }, 12000);
 boot.then(db=>{
   if(!db){ clearTimeout(fallback); goLocal(); return; }
   S.db=db; let got={m:false,h:false};
-  const ready=()=>{ if(got.m&&got.h&&S.mode==='loading'){ clearTimeout(fallback); S.mode='db'; dbReadyFn(); } if(S.mode!=='loading'){ pickSel(); migrateInc75(); migrateAddOct26(); render(); } };
+  const ready=()=>{ if(got.m&&got.h&&S.mode==='loading'){ clearTimeout(fallback); S.mode='db'; dbReadyFn(); } if(S.mode!=='loading'){ pickSel(); migrateInc75(); migrateAddOct26(); migrateDropKieser(); render(); } };
   const onErr=e=>{ console.error(e); if(S.mode==='loading'){ clearTimeout(fallback); S.db=null; goLocal(); } };
   db.collection('machines').onSnapshot(snap=>{ S.machines=snap.docs.map(d=>({id:d.id,...d.data()})); got.m=true; ready(); }, onErr);
   db.collection('history').onSnapshot(snap=>{ const h={}; snap.docs.forEach(d=>h[d.id]={...d.data()}); S.hist=h; got.h=true; ready(); }, onErr);
