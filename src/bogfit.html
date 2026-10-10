@@ -890,7 +890,7 @@ async function doRestore(){
     S.drafts={}; S.sel=null; pickSel();
     S.bkMsg=`Restored ${data.machines.length} machines and ${setCount(data.history)} sets from ${new Date(data.exportedAt).toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'numeric'})}.`;
   }catch(e){ console.error(e); S.bkMsg="Couldn't finish the restore. Try again with the same file."; }
-  S.bkBusy=false; S.inc75Ran=false; S.addOctRan=false; S.dropKRan=false; S.mergeAbRan=false; migrateInc75(); migrateAddOct26(); migrateDropKieser(); migrateMergeAbduct(); render();
+  S.bkBusy=false; S.inc75Ran=false; S.addOctRan=false; S.dropKRan=false; S.mergeAbRan=false; S.mergeAbbRan=false; migrateInc75(); migrateAddOct26(); migrateDropKieser(); migrateMergeAbduct(); migrateMergeAbbuct(); render();
 }
 function backupCard(){
   const lb=lastBackup(), d=S.restore;
@@ -1358,26 +1358,38 @@ function migrateDropKieser(){
   S.drafts={}; savePrefs({dropKieser:true});
 }
 
+/* Combine several machines into the first one in ms: move all sets across (no duplicates), add settings it lacks (max 4),
+   fill photo/video/muscles if missing, carry the Lane Cove star, then remove the others. */
+function mergeMachines(ms, name){
+  const keep={...ms[0], settings:(ms[0].settings||[]).slice()}, seen=new Set(), all=[];
+  if(name) keep.name=name;
+  ms.forEach(m=>((S.hist[m.id]&&S.hist[m.id].entries)||[]).forEach(e=>{ if(!seen.has(e.id)){ seen.add(e.id); all.push(e); } }));
+  ms.slice(1).forEach(m=>{
+    (m.settings||[]).forEach(st=>{ const l=String(st.label||'').trim().toLowerCase(); if(l && keep.settings.length<4 && !keep.settings.some(x=>String(x.label||'').trim().toLowerCase()===l)) keep.settings.push(st); });
+    if(!keep.photo && m.photo) keep.photo=m.photo; if(!keep.video && m.video) keep.video=m.video;
+    if(!(keep.targets&&keep.targets.length) && m.targets) keep.targets=m.targets; if(m.laneCove) keep.laneCove=true;
+  });
+  saveMachine(keep); if(all.length) saveHist(keep.id, all);
+  ms.slice(1).forEach(m=>{ if(S.sel===m.id) S.sel=keep.id; delDoc('machines', m.id); delDoc('history', m.id); });
+  renderStrip.done=false;
+}
+const nSets = m => ((S.hist[m.id]&&S.hist[m.id].entries)||[]).length;
 /* One-time update (Oct 2026): Rob had two Hip Abduction machines. Combine every machine with "abduct" in its name into one:
-   keep the Lane Cove one (else the one with most sets), move all sets across, keep its settings and add any missing ones, then remove the others. */
+   keep the Lane Cove one (else the one with most sets). */
 function migrateMergeAbduct(){
   if(S.mergeAbRan || S.prefs.mergeAbduct || S.bkBusy || S.mode!=='db' || !S.machines.length) return; S.mergeAbRan=true;
   const ms=S.machines.filter(m=>/abduct/i.test(String(m.name||'')));
-  if(ms.length>1){
-    const n=m=>((S.hist[m.id]&&S.hist[m.id].entries)||[]).length;
-    ms.sort((a,b)=>(b.laneCove?1:0)-(a.laneCove?1:0) || n(b)-n(a) || (a.order??0)-(b.order??0));
-    const keep={...ms[0], settings:(ms[0].settings||[]).slice()}, seen=new Set(), all=[];
-    ms.forEach(m=>((S.hist[m.id]&&S.hist[m.id].entries)||[]).forEach(e=>{ if(!seen.has(e.id)){ seen.add(e.id); all.push(e); } }));
-    ms.slice(1).forEach(m=>{
-      (m.settings||[]).forEach(st=>{ const l=String(st.label||'').trim().toLowerCase(); if(l && keep.settings.length<4 && !keep.settings.some(x=>String(x.label||'').trim().toLowerCase()===l)) keep.settings.push(st); });
-      if(!keep.photo && m.photo) keep.photo=m.photo; if(!keep.video && m.video) keep.video=m.video;
-      if(!(keep.targets&&keep.targets.length) && m.targets) keep.targets=m.targets; if(m.laneCove) keep.laneCove=true;
-    });
-    saveMachine(keep); if(all.length) saveHist(keep.id, all);
-    ms.slice(1).forEach(m=>{ if(S.sel===m.id) S.sel=keep.id; delDoc('machines', m.id); delDoc('history', m.id); });
-    renderStrip.done=false;
-  }
+  if(ms.length>1){ ms.sort((a,b)=>(b.laneCove?1:0)-(a.laneCove?1:0) || nSets(b)-nSets(a) || (a.order??0)-(b.order??0)); mergeMachines(ms); }
   S.drafts={}; savePrefs({mergeAbduct:true});
+}
+/* One-time update (Oct 2026): a misspelled "Hip Abbuction" machine goes into "Hip Abduction" (correct spelling kept as the name). */
+function migrateMergeAbbuct(){
+  if(S.mergeAbbRan || S.prefs.mergeAbbuct || S.bkBusy || S.mode!=='db' || !S.machines.length) return; S.mergeAbbRan=true;
+  const ms=S.machines.filter(m=>/hip\s*ab+d?uct/i.test(String(m.name||'')));
+  if(ms.length>1){ const ok=m=>/^\s*hip\s+abduction\s*$/i.test(String(m.name||''));
+    ms.sort((a,b)=>(ok(b)?1:0)-(ok(a)?1:0) || (b.laneCove?1:0)-(a.laneCove?1:0) || nSets(b)-nSets(a) || (a.order??0)-(b.order??0));
+    mergeMachines(ms, 'Hip Abduction'); }
+  S.drafts={}; savePrefs({mergeAbbuct:true});
 }
 
 /* ---------- saving a set ---------- */
@@ -1566,7 +1578,7 @@ const fallback = setTimeout(()=>{ if(S.mode==='loading') goLocal(); }, 12000);
 boot.then(db=>{
   if(!db){ clearTimeout(fallback); goLocal(); return; }
   S.db=db; let got={m:false,h:false};
-  const ready=()=>{ if(got.m&&got.h&&S.mode==='loading'){ clearTimeout(fallback); S.mode='db'; dbReadyFn(); } if(S.mode!=='loading'){ pickSel(); migrateInc75(); migrateAddOct26(); migrateDropKieser(); migrateMergeAbduct(); render(); } };
+  const ready=()=>{ if(got.m&&got.h&&S.mode==='loading'){ clearTimeout(fallback); S.mode='db'; dbReadyFn(); } if(S.mode!=='loading'){ pickSel(); migrateInc75(); migrateAddOct26(); migrateDropKieser(); migrateMergeAbduct(); migrateMergeAbbuct(); render(); } };
   const onErr=e=>{ console.error(e); if(S.mode==='loading'){ clearTimeout(fallback); S.db=null; goLocal(); } };
   db.collection('machines').onSnapshot(snap=>{ S.machines=snap.docs.map(d=>({id:d.id,...d.data()})); got.m=true; ready(); }, onErr);
   db.collection('history').onSnapshot(snap=>{ const h={}; snap.docs.forEach(d=>h[d.id]={...d.data()}); S.hist=h; got.h=true; ready(); }, onErr);
