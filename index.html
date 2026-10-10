@@ -60,6 +60,22 @@ button{cursor:pointer}
 .meta{color:var(--muted);font-size:15px;margin-top:4px}
 .ghost{border:1px solid var(--line);background:transparent;border-radius:10px;padding:7px 12px;font-weight:600;font-size:14px}
 .last{display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:15px;color:var(--muted)}
+.head.compact{align-items:center;padding-top:0;gap:10px}
+.head.compact h1{font-size:28px}
+.incrow{display:flex;align-items:center;gap:8px;max-width:220px}.incrow input{text-align:center;flex:1;min-width:0}
+.step.sm{width:44px;height:44px;font-size:22px;flex:none}
+.ask{background:var(--sunk);border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:8px}
+.ask p{margin:0;font-size:15px;color:var(--ink)}
+.ask-r{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.ask-b{border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:10px;padding:8px 4px;font-weight:600;font-size:15px;display:flex;flex-direction:column;align-items:center;gap:2px}
+.ask-b small{font-weight:500;font-size:13px;color:var(--muted)}
+.ask-b.sug{border:2px solid var(--accent);color:var(--accent)}
+.head.compact .meta{font-size:14px;margin-top:2px}
+.head.compact .ghost{padding-block:6px}
+.last3{display:flex;flex-direction:column;gap:4px;font-size:15px;color:var(--muted)}
+.last3 .r{display:flex;justify-content:space-between;gap:8px;font-variant-numeric:tabular-nums}
+.last3 .r b{color:var(--ink)}
+.last3 .r:first-child b{color:var(--accent)}
 .pill{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:4px 10px;font-weight:600;font-size:14px}
 .pill.up{background:var(--over-soft);color:var(--over)}.pill.hold{background:var(--zone-soft);color:var(--zone)}.pill.down{background:var(--accent-soft);color:var(--accent)}
 .weight{display:grid;grid-template-columns:56px minmax(0,1fr) 56px;gap:10px;align-items:center}
@@ -353,7 +369,7 @@ function saveProfile(p){
   S.profile = {...S.profile, ...p};
   if(S.db) write('prefs/profile', ()=>S.db.doc('prefs/profile').set(S.profile));
 }
-/* Next-set weight from the previous set's time, in the machine's increments:
+/* Suggested change from the previous set's time (BogFit asks, never changes the weight by itself), in the machine's increments:
    under 110 s down one step, 110-130 s stay, over 130 s up one step, 180 s (full time) up two steps. */
 function nextStep(l, m){
   const s=l&&l.seconds; if(s==null) return 0;
@@ -361,7 +377,7 @@ function nextStep(l, m){
   return r2(n*stepFor(m));
 }
 function draft(m){
-  if(!S.drafts[m.id]){ const l=entries(m.id)[0]; S.drafts[m.id]={weight: l?String(snap(inUnit(l)+nextStep(l,m), stepFor(m))):'', seconds:'', reps:'', date:today()}; }
+  if(!S.drafts[m.id]){ const l=entries(m.id)[0]; S.drafts[m.id]={weight: l?String(snap(inUnit(l), stepFor(m))):'', seconds:'', reps:'', date:today(), asked:!(l&&l.seconds!=null)}; }
   return S.drafts[m.id];
 }
 
@@ -1100,16 +1116,24 @@ function pageSession(){
   const lastLine = last
     ? `<span>Last time ${fmtDate(last.date)}: <b>${inUnit(last)} ${uLabel(u)}</b>${last.seconds!=null?' · <b>'+last.seconds+' s</b>':''}${last.reps?' · '+last.reps+' reps':''}</span>${last.seconds!=null?(()=>{ const n=nextStep(last,m); return n>0?`<span class="pill up">Up ${fmt(n)} ${uLabel(u)}</span>`:n<0?`<span class="pill down">Down ${fmt(-n)} ${uLabel(u)}</span>`:`<span class="pill hold">Same weight</span>`; })():''}`
     : `<span>No sets logged yet. Enter a starting weight.</span>`;
+  const last3 = ls.slice(0,3);
+  const lastBlock = last3.length
+    ? `<div class="last3">${last3.map(e=>`<div class="r"><span>${fmtDate(e.date)}</span><span><b>${inUnit(e)} ${uLabel(u)}</b>${e.seconds!=null?' · '+e.seconds+' s':''}${e.reps?' · '+e.reps+' reps':''}</span></div>`).join('')}</div>`
+    : `<div class="last">${lastLine}</div>`;
   const settings = (m.settings||[]);
   const todays = allSets().filter(e=>e.date===today()).sort((a,b)=>byName(mById(a.mid),mById(b.mid))||(a.ts||0)-(b.ts||0));
   return `
-  <section class="head">
-    <div style="display:flex;gap:12px;align-items:center;min-width:0">${micon(m,'mtile lg')}<div style="min-width:0"><h1>${esc(m.name)}${lcStar(m)}</h1><div class="meta">${tg.length?tg.map(t=>MUSCLES[t].name).join(' · '):esc(m.muscle||'')}</div>${linkButtons(m)}</div></div>
+  <section class="head compact">
+    <div style="display:flex;gap:10px;align-items:center;min-width:0">${micon(m,'mtile')}<div style="min-width:0"><h1>${esc(m.name)}${lcStar(m)}</h1><div class="meta">${tg.length?tg.map(t=>MUSCLES[t].name).join(' · '):esc(m.muscle||'')}</div>${linkButtons(m)}</div></div>
     <button class="ghost" data-act="edit-machine">Edit</button>
   </section>
   <section class="card" aria-labelledby="lg">
     <p class="label" id="lg">Log a set</p>
-    <div class="last">${lastLine}</div>
+    ${lastBlock}
+    ${last&&last.seconds!=null&&!d.asked&&!(S.justSaved&&S.justSaved.mid===m.id)?(()=>{ const n=nextStep(last,m), st=stepFor(m), lw=snap(inUnit(last),st), up=stepUp(lw,st), dn=stepDown(lw,st);
+      const b=(v,dir,txt)=>`<button class="ask-b${(dir>0&&n>0)||(dir<0&&n<0)||(dir===0&&n===0)?' sug':''}" data-act="ask-w" data-w="${v}">${txt}</button>`;
+      return `<div class="ask" id="ask"><p>${last.seconds} s last time. ${n>0?'Suggest going up.':n<0?'Suggest going down.':'Suggest the same weight.'} Change the weight?</p>
+        <div class="ask-r">${b(dn,-1,'Decrease<small>'+fmt(dn)+' '+uLabel(u)+'</small>')}${b(lw,0,'Same<small>'+fmt(lw)+' '+uLabel(u)+'</small>')}${b(up,1,'Increase<small>'+fmt(up)+' '+uLabel(u)+'</small>')}</div></div>`; })():''}
     <div class="weight">
       <button class="step" data-act="dec" aria-label="Decrease weight">−</button>
       <label class="big"><input id="d-weight" inputmode="decimal" value="${esc(d.weight)}" aria-label="Weight in ${uLabel(u)}"><span>${uLabel(u)}</span></label>
@@ -1288,7 +1312,7 @@ function renderSheet(){
       <div class="field"><span class="label">Icon</span><div class="ipick" role="group" aria-label="Machine icon">${(()=>{ const curI = sh.icon || (sh.id?iconKey(m):guessIcon('')); return Object.keys(MICONS).map(k=>`<button type="button" data-mi="${k}" aria-pressed="${k===curI}">${iconSvg(k)}<span>${MICONS[k].name}</span></button>`).join(''); })()}</div><small>${sh.id?'':'Picked for you from the name if you leave it.'}</small></div>
       <div class="field"><span class="label">Muscles it works</span><div class="mchips">${Object.keys(MUSCLES).sort((a,b)=>MUSCLES[a].name.localeCompare(MUSCLES[b].name)).map(k=>`<button class="mchip" data-mt="${k}" aria-pressed="${sh.targets.includes(k)}">${MUSCLES[k].name}</button>`).join('')}</div><small>The first one you pick counts as its main muscle.</small></div>
       <div class="row2">
-        <div class="field" style="grid-column:1/-1"><label class="label" for="f-inc">Weight increment (${uLabel(unit())})</label>${(()=>{ const curInc = Number(inc)||Number(unit()==='lb'?S.prefs.lbStep:S.prefs.kgStep)||1; return `<input id="f-inc" inputmode="decimal" autocomplete="off" value="${esc(sh.form&&sh.form.inc!=null?sh.form.inc:fmt(curInc))}" style="max-width:140px">`; })()}<small>How much the weight goes up or down on this machine. + and − and the next-set suggestion use it.</small></div>
+        <div class="field" style="grid-column:1/-1"><label class="label" for="f-inc">Weight increment (${uLabel(unit())})</label>${(()=>{ const curInc = Number(inc)||Number(unit()==='lb'?S.prefs.lbStep:S.prefs.kgStep)||1; return `<div class="incrow"><button type="button" class="step sm" data-act="inc-dn" aria-label="Smaller increment">−</button><input id="f-inc" inputmode="decimal" autocomplete="off" value="${esc(sh.form&&sh.form.inc!=null?sh.form.inc:fmt(curInc))}"><button type="button" class="step sm" data-act="inc-up" aria-label="Bigger increment">+</button></div>`; })()}<small>How much the weight goes up or down on this machine. Use + and − to change it by ${unit()==='lb'?'1 lb':'0.5 kg'}, or type any amount.</small></div>
       </div>
       <p class="toast" id="f-err" style="color:var(--under)"></p>
       <div class="actions"><button class="ghost" data-act="close">Cancel</button><button class="primary" data-act="save-machine">${sh.id?'Save changes':'Add machine'}</button></div>
@@ -1446,9 +1470,12 @@ document.addEventListener('click', ev=>{
     case 'del-machine': {
       const id=S.sheet.id; closeSheet(); const ms=sorted(); const i=ms.findIndex(x=>x.id===id); const next=ms[i+1]||ms[i-1];
       if(S.sel===id) S.sel = next?next.id:null; delDoc('machines',id); delDoc('history',id); render(); break; }
+    case 'inc-up': case 'inc-dn': { const f=$('#f-inc'); if(!f) break; const st=unit()==='lb'?1:0.5; const v=parseFloat((f.value||'').replace(',','.'))||0;
+      const nv=act==='inc-up' ? r2(Math.floor(v/st+1e-9)*st+st) : r2(Math.ceil(v/st-1e-9)*st-st); f.value=fmt(Math.min(200,Math.max(st,nv))); break; }
+    case 'ask-w': { const d=draft(m); d.weight=String(b.dataset.w); d.asked=true; $('#d-weight').value=d.weight; const a=$('#ask'); if(a) a.remove(); break; }
     case 'inc': case 'dec': {
       if(S.justSaved && S.justSaved.mid===m.id){ S.justSaved=null; const bb=document.querySelector('[data-act="edit-entry"].alt'); if(bb) bb.outerHTML='<button class="primary" data-act="save-set">Save set</button>'; }
-      const d=draft(m), st=stepFor(m), w=parseFloat(d.weight)||0; d.weight=String(act==='inc' ? stepUp(w,st) : stepDown(w,st)); $('#d-weight').value=d.weight; break; }
+      const d=draft(m), st=stepFor(m), w=parseFloat(d.weight)||0; d.asked=true; { const a=$('#ask'); if(a) a.remove(); } d.weight=String(act==='inc' ? stepUp(w,st) : stepDown(w,st)); $('#d-weight').value=d.weight; break; }
     case 'timer': startTimer(); break;
     case 'timer-stop': endTimer(true); break;
     case 'timer-cancel': endTimer(false); break;
