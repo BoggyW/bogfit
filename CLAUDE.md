@@ -2,7 +2,7 @@
 
 BogFit exists in two places that must always match. Every improvement goes to BOTH:
 
-1. **Claude artifact** (data saved in Rob's Claude account): https://claude.ai/artifact/6eeaU2uUSxiRiJGbvhDk1a
+1. **Claude artifact** (data saved in Rob's Claude account, in his Teams organisation, BogFit project): https://claude.ai/artifact/4W8kGiemguhiU6szMf62Hk
 2. **Home Screen app** (data saved on Rob's iPhone, no sign-in): https://boggyw.github.io/bogfit/ — served by GitHub Pages from `main` of this repo.
 
 ## Steps for every change
@@ -10,7 +10,7 @@ BogFit exists in two places that must always match. Every improvement goes to BO
 2. Run `./build.sh` (rebuilds `index.html` and bumps the cache name in `sw.js`, so installed phones update on next open).
 3. Test in a browser (Playwright + Chromium are available): open `index.html` over `python3 -m http.server`, check the changed screens, and that there are no page errors.
 4. Commit and push to `main`. GitHub Pages republishes in about a minute.
-5. Republish the artifact: Artifact tool, `file_path` = `src/bogfit.html`, `url` = the artifact URL above.
+5. Republish the artifact: Artifact tool, `file_path` = `src/bogfit.html`, `url` = the artifact URL above. Its capabilities are `{db:{}, assets:{}, user:{}}`; omit `capabilities` on republish so they carry forward. (The old artifact 6eeaU2uUSxiRiJGbvhDk1a in Rob's other organisation is retired.)
 6. Tell Rob both are updated.
 
 ## Things to know
