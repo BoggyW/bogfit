@@ -1572,7 +1572,23 @@ if(!IS_CLAUDE && 'serviceWorker' in navigator && (location.protocol==='https:' |
     if(document.hidden){ hiddenAt=Date.now(); return; }
     if(hiddenAt && Date.now()-hiddenAt > 10*60*1000 && !S.timer && !S.locked){ S.locked=true; S.faceAuto=false; render(); }
     if(hiddenAt && Date.now()-hiddenAt > 60*60*1000 && !S.timer && !S.sheet && !S.bkBusy && !S.healthBusy && navigator.onLine) location.reload();
+    else checkForUpdate();
   });
+  /* New version check: build.sh stamps index.html and sw.js with the same build id. Whenever BogFit opens or comes back to the
+     front, compare with the live sw.js and reload to the new version, but never while a set is being timed or typed in. */
+  const BUILD=(document.querySelector('meta[name="bogfit-build"]')||{}).content||'';
+  const busy=()=>S.timer || S.sheet || S.bkBusy || S.healthBusy || S.photoBusy || Object.values(S.drafts||{}).some(d=>d && (String(d.seconds||'')!=='' || String(d.reps||'')!==''));
+  let checking=false;
+  async function checkForUpdate(){
+    if(!BUILD || checking || !navigator.onLine) return; checking=true;
+    try{
+      const t=await (await fetch('sw.js?v='+Date.now(), {cache:'no-store'})).text(), m=t.match(/bogfit-(\d+)/);
+      if(m && m[1]!==BUILD){ navigator.serviceWorker.getRegistration().then(r=>r&&r.update()).catch(()=>{});
+        if(!busy()) location.reload(); else S.updateWaiting=true; }
+    }catch(e){} checking=false;
+  }
+  setTimeout(checkForUpdate, 3000);
+  document.addEventListener('click', ()=>{ if(S.updateWaiting && !busy()){ S.updateWaiting=false; setTimeout(()=>{ if(!busy()) location.reload(); }, 1500); } }, true);
 }
 const fallback = setTimeout(()=>{ if(S.mode==='loading') goLocal(); }, 12000);
 boot.then(db=>{

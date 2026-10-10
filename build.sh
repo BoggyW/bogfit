@@ -4,6 +4,7 @@
 set -e
 cd "$(dirname "$0")"
 SRC=src/bogfit.html
+STAMP=$(date +%Y%m%d%H%M%S)
 {
 cat <<'HEAD'
 <!doctype html>
@@ -21,6 +22,7 @@ cat <<'HEAD'
 <meta name="apple-mobile-web-app-title" content="BogFit">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 HEAD
+echo "<meta name=\"bogfit-build\" content=\"$STAMP\">"
 sed -n '1,/<\/style>/p' "$SRC"
 echo '</head>'
 echo '<body>'
@@ -29,5 +31,5 @@ echo '</body>'
 echo '</html>'
 } > index.html
 # New cache name so installed phones pick up the new version on next open.
-sed -i "s/const CACHE = 'bogfit-[^']*'/const CACHE = 'bogfit-$(date +%Y%m%d%H%M%S)'/" sw.js
+sed -i "s/const CACHE = 'bogfit-[^']*'/const CACHE = 'bogfit-$STAMP'/" sw.js
 echo "built index.html ($(wc -c < index.html) bytes)"
