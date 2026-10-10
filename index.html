@@ -12,7 +12,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="BogFit">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="bogfit-build" content="20261010043421">
+<meta name="bogfit-build" content="20261010044009">
 <title>BogFit</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&display=swap">
@@ -1144,10 +1144,6 @@ function pageSession(){
       <button class="bigtimer" data-act="timer">Start timer</button>
       <div class="field"><label class="label" for="d-seconds">Seconds</label><input id="d-seconds" inputmode="numeric" placeholder="0" value="${esc(d.seconds)}"></div>
     </div>
-    <div class="row2">
-      <div class="field"><label class="label" for="d-reps">Reps (optional)</label><input id="d-reps" inputmode="numeric" value="${esc(d.reps)}"></div>
-      <div class="field"><label class="label" for="d-date">Date</label><input id="d-date" type="date" value="${esc(d.date)}"></div>
-    </div>
     <small class="meta" style="margin:0">Target ${S.prefs.zoneMin}–${S.prefs.zoneMax} s. +/− moves ${fmt(stepFor(m))} ${uLabel(u)}.</small>
     ${(()=>{ const js=S.justSaved; const e=js&&js.mid===m.id&&entries(m.id).find(x=>x.id===js.eid);
       return e ? `<button class="primary alt" data-act="edit-entry" data-mid="${esc(m.id)}" data-eid="${esc(e.id)}">Edit this set</button>` : `<button class="primary" data-act="save-set">Save set</button>`; })()}
@@ -1413,8 +1409,8 @@ function migrateMergeAbbuct(){
 function saveSet(m){
   const d=draft(m), w=r2(parseFloat(String(d.weight).replace(',','.'))), s=d.seconds===''?null:parseInt(d.seconds,10), r=d.reps===''?null:parseInt(d.reps,10);
   if(isNaN(w) || w<0){ render(); showToast('Enter the weight you used, then tap Save set.', true); const i=$('#d-weight'); i&&i.focus(); return null; }
-  if(s==null && r==null){ showToast('Enter the seconds (or reps) for this set.', true); $('#d-seconds').focus(); return null; }
-  const e={id:'e-'+rid(), date:d.date||today(), weight:w, unit:unit(), seconds:isNaN(s)?null:s, reps:isNaN(r)?null:r, ts:Date.now()};
+  if(s==null && r==null){ showToast('Enter the seconds for this set.', true); $('#d-seconds').focus(); return null; }
+  const e={id:'e-'+rid(), date:today(), weight:w, unit:unit(), seconds:isNaN(s)?null:s, reps:isNaN(r)?null:r, ts:Date.now()};
   const list=(S.hist[m.id]&&S.hist[m.id].entries||[]).slice(); list.push(e);
   delete S.drafts[m.id]; S.justSaved={mid:m.id, eid:e.id}; saveHist(m.id, list);
   render(); showToast('Saved: '+w+' '+uLabel(unit())+(e.seconds!=null?' · '+e.seconds+' s':'')+(e.reps!=null?' · '+e.reps+' reps':''));
